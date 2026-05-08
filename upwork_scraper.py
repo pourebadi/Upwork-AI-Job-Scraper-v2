@@ -1624,9 +1624,9 @@ def add_job_to_notion(job: dict) -> bool:
     add_callout_chunks(
         children,
         (
-            "Use the Generate Proposal button for this job after review. The button "
-            "approves this job, requests one proposal, and starts the proposal worker "
-            "for this page."
+            "After review, click the Generate Proposal button on this row or page. "
+            "That one click is enough: it approves the job, requests the proposal, "
+            "and starts generation. Do not change statuses manually."
         ),
         "🧠"
     )

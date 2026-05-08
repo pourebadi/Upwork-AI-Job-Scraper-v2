@@ -338,6 +338,17 @@ GITHUB_SCRAPER_WORKFLOW_ID=scraper.yml
 
 Create manager-facing buttons in Notion. Do not ask the manager to open GitHub.
 
+Recommended non-technical manager flow:
+
+```text
+1. Open Jobs in Notion.
+2. Review a job in the list or open its page.
+3. Click one button: Generate Proposal.
+4. Do not edit Manager Review or Proposal Status manually.
+5. Wait for Proposal Status to move to Generating and then Ready.
+6. Read the generated proposal inside the same job page.
+```
+
 ### Control Panel Buttons
 
 Create a small Notion page or database called `Automation Control Panel`.
@@ -362,7 +373,20 @@ Button: `Refresh Workspace Views`
 
 Create one database button in `Jobs` named `Generate Proposal`.
 
-Use this button when you want a proposal for one specific job. Open the job row or use the button from the table, then click `Generate Proposal`; it will approve that job, request one proposal, and trigger the proposal worker for that page.
+Use this button when you want a proposal for one specific job. Open the job row or use the button from the table, then click `Generate Proposal`.
+
+This is the exact one-click flow for the manager:
+
+```text
+Click Generate Proposal
+→ Notion sets Manager Review = Approved
+→ Notion sets Proposal Status = Requested
+→ Notion sends webhook to the router
+→ webhook_server.py dispatches Proposal Worker in GitHub Actions
+→ generate_requested_proposals.py updates the same page
+→ Proposal Status becomes Generating and then Ready
+→ The proposal appears under AI Proposal inside the same job page
+```
 
 Configure the button with these actions in order:
 
@@ -382,6 +406,14 @@ The generated proposal is appended inside the job page under AI Proposal.
 ```
 
 If the webhook payload includes a page id, the workflow targets that page immediately. If not, it still runs instantly and processes all rows currently marked `Approved + Requested`.
+
+Important implementation note:
+
+```text
+Use a Notion database button property for Generate Proposal.
+Do not rely on the manager to edit statuses manually.
+GitHub is only the execution engine behind the webhook.
+```
 
 ---
 
