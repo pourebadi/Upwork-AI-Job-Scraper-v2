@@ -3,6 +3,11 @@ name: Proposal Worker
 on:
   workflow_dispatch:
     inputs:
+      trigger_source:
+        description: "Source that triggered this run"
+        required: false
+        default: "manual"
+        type: string
       notion_page_id:
         description: "Optional Notion page id to process immediately"
         required: false

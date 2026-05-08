@@ -1624,8 +1624,9 @@ def add_job_to_notion(job: dict) -> bool:
     add_callout_chunks(
         children,
         (
-            "Review this job first. When approved, set Manager Review to Approved and "
-            "Proposal Status to Requested to generate the proposal on demand."
+            "Use the Generate Proposal button for this job after review. The button "
+            "approves this job, requests one proposal, and starts the proposal worker "
+            "for this page."
         ),
         "🧠"
     )

@@ -56,6 +56,37 @@ JOBS_TABLE_VISIBLE_ORDER = [
     "Status",
 ]
 
+JOBS_REVIEW_VISIBLE_ORDER = [
+    "Title",
+    "Manager Review",
+    "Proposal Status",
+    "Status",
+    "Match Score",
+    "Discovered Day",
+    "Published At",
+    "Source Query",
+    "Payment Status",
+    "Job Type",
+    "Budget",
+    "Client Hires",
+    "Client Spent",
+    "Proposals",
+    "Hourly Rate",
+    "Project Length",
+    "Gig Link",
+]
+
+JOBS_TABLE_HIDDEN_PROPERTIES = {
+    "AI Model",
+    "AI Notes",
+    "Job ID",
+    "Job Summary",
+    "Prompt Template",
+    "Proposal Error",
+    "Proposal Preview",
+    "Proposal Requested At",
+}
+
 
 def notion_headers() -> dict:
     return {
@@ -597,12 +628,13 @@ def get_jobs_database_id() -> str:
     return require_database_id("jobs")
 
 
-def build_jobs_table_view_configuration(database: dict) -> dict:
+def build_jobs_table_view_configuration(database: dict, visible_order: Optional[list[str]] = None) -> dict:
     properties = database.get("properties", {})
+    visible_order = visible_order or JOBS_TABLE_VISIBLE_ORDER
     ordered_names = []
     seen = set()
 
-    for name in JOBS_TABLE_VISIBLE_ORDER:
+    for name in visible_order:
         if name in properties:
             ordered_names.append(name)
             seen.add(name)
@@ -613,10 +645,14 @@ def build_jobs_table_view_configuration(database: dict) -> dict:
 
     property_config = []
     for name in ordered_names:
+        is_visible = (
+            name in visible_order
+            and name not in JOBS_TABLE_HIDDEN_PROPERTIES
+        )
         property_config.append(
             {
                 "property_id": name,
-                "visible": name in JOBS_TABLE_VISIBLE_ORDER,
+                "visible": is_visible,
             }
         )
 
@@ -634,30 +670,149 @@ def build_jobs_table_view_sorts() -> list[dict]:
 
 
 def build_jobs_named_view_specs() -> list[dict]:
+    needs_review_filter = {
+        "property": "Manager Review",
+        "status": {"equals": "New"},
+    }
+    approved_filter = {
+        "property": "Manager Review",
+        "status": {"equals": "Approved"},
+    }
+    rejected_filter = {
+        "or": [
+            {"property": "Manager Review", "status": {"equals": "Rejected"}},
+            {"property": "Status", "status": {"equals": "Rejected"}},
+            {"property": "Status", "status": {"equals": "Skipped"}},
+        ]
+    }
+    proposal_not_requested_filter = {
+        "property": "Proposal Status",
+        "status": {"equals": "Not Requested"},
+    }
+
     return [
+        {
+            "name": "01 Today - New Jobs",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": {
+                "and": [
+                    {"property": "Discovered Day", "date": {"equals": "today"}},
+                    needs_review_filter,
+                ]
+            },
+            "sorts": build_jobs_table_view_sorts(),
+        },
+        {
+            "name": "02 Yesterday - Unreviewed",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": {
+                "and": [
+                    {"property": "Discovered Day", "date": {"equals": "yesterday"}},
+                    needs_review_filter,
+                ]
+            },
+            "sorts": build_jobs_table_view_sorts(),
+        },
+        {
+            "name": "03 Needs Decision",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": needs_review_filter,
+            "sorts": build_jobs_table_view_sorts(),
+        },
+        {
+            "name": "04 Last 7 Days",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": {
+                "property": "Discovered Day",
+                "date": {"past_week": {}},
+            },
+            "sorts": [
+                {"property": "Discovered Day", "direction": "descending"},
+                *build_jobs_table_view_sorts(),
+            ],
+        },
+        {
+            "name": "05 Approved - Need Proposal",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": {
+                "and": [
+                    approved_filter,
+                    proposal_not_requested_filter,
+                ]
+            },
+            "sorts": build_jobs_table_view_sorts(),
+        },
+        {
+            "name": "06 Proposal Ready",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": {
+                "property": "Proposal Status",
+                "status": {"equals": "Ready"},
+            },
+            "sorts": [
+                {"property": "Proposal Generated At", "direction": "descending"},
+                *build_jobs_table_view_sorts(),
+            ],
+        },
+        {
+            "name": "07 Applied",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": {
+                "property": "Status",
+                "status": {"equals": "Applied"},
+            },
+            "sorts": [
+                {"property": "Proposal Generated At", "direction": "descending"},
+                *build_jobs_table_view_sorts(),
+            ],
+        },
+        {
+            "name": "08 Rejected - Skipped",
+            "filter": rejected_filter,
+            "sorts": [
+                {"property": "Discovered Day", "direction": "descending"},
+                *build_jobs_table_view_sorts(),
+            ],
+        },
+        {
+            "name": "09 All Jobs by Date",
+            "filter": None,
+            "sorts": [
+                {"property": "Discovered Day", "direction": "descending"},
+                *build_jobs_table_view_sorts(),
+            ],
+        },
         {
             "name": "Jobs Table",
             "filter": None,
-            "sorts": build_jobs_table_view_sorts(),
+            "sorts": [
+                {"property": "Discovered Day", "direction": "descending"},
+                *build_jobs_table_view_sorts(),
+            ],
         },
         {
+            # Kept for compatibility with older setups that already created this view.
             "name": "Today",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
-                "property": "Discovered Day",
-                "date": {"equals": "today"},
+                "and": [
+                    {"property": "Discovered Day", "date": {"equals": "today"}},
+                    needs_review_filter,
+                ]
             },
             "sorts": build_jobs_table_view_sorts(),
         },
         {
+            # Kept for compatibility with older setups that already created this view.
             "name": "Approved",
-            "filter": {
-                "property": "Manager Review",
-                "status": {"equals": "Approved"},
-            },
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": approved_filter,
             "sorts": build_jobs_table_view_sorts(),
         },
         {
+            # Kept for compatibility with older setups that already created this view.
             "name": "Proposal Ready",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
                 "property": "Proposal Status",
                 "status": {"equals": "Ready"},
@@ -683,11 +838,14 @@ def configure_jobs_table_view(database_id: str):
     if not table_views:
         return
 
-    configuration = build_jobs_table_view_configuration(database)
     data_source_id = table_views[0].get("data_source_id")
 
     for spec in build_jobs_named_view_specs():
         existing = next((view for view in table_views if view.get("name") == spec["name"]), None)
+        configuration = build_jobs_table_view_configuration(
+            database,
+            spec.get("visible_order"),
+        )
         payload = {
             "name": spec["name"],
             "filter": spec["filter"],
@@ -713,6 +871,73 @@ def configure_jobs_table_view(database_id: str):
                 "configuration": configuration,
             }
         )
+
+
+SCRAPER_SETTINGS_TABLE_VISIBLE_ORDER = [
+    "Setting",
+    "Value",
+    "Type",
+    "Enabled",
+    "Description",
+]
+
+SCRAPER_SETTINGS_TABLE_HIDDEN_PROPERTIES = {
+    "Setting Key",
+}
+
+
+def build_scraper_settings_table_view_configuration(database: dict) -> dict:
+    properties = database.get("properties", {})
+    ordered_names = []
+    seen = set()
+
+    for name in SCRAPER_SETTINGS_TABLE_VISIBLE_ORDER:
+        if name in properties:
+            ordered_names.append(name)
+            seen.add(name)
+
+    for name in properties.keys():
+        if name not in seen:
+            ordered_names.append(name)
+
+    property_config = []
+    for name in ordered_names:
+        is_visible = (
+            name in SCRAPER_SETTINGS_TABLE_VISIBLE_ORDER
+            and name not in SCRAPER_SETTINGS_TABLE_HIDDEN_PROPERTIES
+        )
+        property_config.append(
+            {
+                "property_id": name,
+                "visible": is_visible,
+            }
+        )
+
+    return {
+        "type": "table",
+        "properties": property_config,
+    }
+
+
+def configure_scraper_settings_table_view(database_id: str):
+    database = get_database(database_id)
+    views = list_database_views(database_id)
+
+    if not views:
+        return
+
+    detailed_views = [retrieve_view(view_ref["id"]) for view_ref in views]
+    table_views = [view for view in detailed_views if view.get("type") == "table"]
+    if not table_views:
+        return
+
+    configuration = build_scraper_settings_table_view_configuration(database)
+    payload = {
+        "name": "Settings",
+        "configuration": configuration,
+    }
+
+    update_view(table_views[0]["id"], payload)
 
 
 def extract_plain_text_from_block(block: dict) -> str:
@@ -870,6 +1095,7 @@ def build_search_queries_schema() -> dict:
 def build_scraper_settings_schema() -> dict:
     return {
         "Setting": {"title": {}},
+        "Setting Key": {"rich_text": {}},
         "Value": {"rich_text": {}},
         "Type": {
             "select": {
@@ -956,34 +1182,35 @@ def get_default_search_rows() -> list[dict]:
 
 def get_default_settings_rows() -> list[dict]:
     defaults = [
-        ("openai_model", os.getenv("OPENAI_MODEL", "gpt-5.1"), "string", True, "Model used by proposal generator."),
-        ("max_job_age_days", os.getenv("MAX_JOB_AGE_DAYS", "14"), "int", True, "Reject jobs older than this many days."),
-        ("default_results_per_page", "5", "int", True, "Fallback results per page when a query row is missing a value."),
-        ("require_payment_verified", "false", "bool", True, "When true, reject jobs without verified payment."),
-        ("require_client_spent", "false", "bool", True, "When true, require minimum client spend."),
-        ("require_client_hires", "false", "bool", True, "When true, require client hires > 0."),
-        ("require_proposals_limit", "false", "bool", True, "When true, reject jobs above maximum proposals."),
-        ("require_project_length", "false", "bool", True, "When true, only accept preferred project lengths."),
-        ("require_budget_range", "false", "bool", True, "When true, enforce fixed budget range."),
-        ("require_hourly_range", "false", "bool", True, "When true, enforce hourly range."),
-        ("minimum_client_spent", "100", "int", True, "Minimum client spend threshold."),
-        ("maximum_proposals", "20", "int", True, "Maximum allowed proposal count."),
-        ("minimum_fixed_budget", "1000", "int", True, "Minimum fixed budget threshold."),
-        ("maximum_fixed_budget", "100000", "int", True, "Maximum fixed budget threshold."),
-        ("minimum_hourly_rate", "10", "int", True, "Minimum hourly rate threshold."),
-        ("maximum_hourly_rate", "50", "int", True, "Maximum hourly rate threshold."),
-        ("default_prompt_template", "default-proposal-template", "string", True, "Template key used when a job does not specify another template."),
-        ("proposal_prompt_mode", "lean", "string", True, "Proposal prompt mode: lean or full."),
-        ("proposal_max_description_chars", "3500", "int", True, "Maximum job description characters sent to the model."),
-        ("proposal_max_template_chars", "2200", "int", True, "Maximum template characters sent when full mode is used."),
+        ("openai_model", "OpenAI Model", os.getenv("OPENAI_MODEL", "gpt-5.1"), "string", True, "AI model used to generate proposal drafts."),
+        ("max_job_age_days", "Max Job Age (Days)", os.getenv("MAX_JOB_AGE_DAYS", "14"), "int", True, "Reject jobs older than this many days."),
+        ("default_results_per_page", "Default Results Per Query", "5", "int", True, "Fallback Upwork result count when a search query has no value."),
+        ("require_payment_verified", "Require Verified Payment", "false", "bool", True, "When true, reject jobs from clients without verified payment."),
+        ("require_client_spent", "Require Client Spend", "false", "bool", True, "When true, require clients to meet the minimum spend setting."),
+        ("require_client_hires", "Require Client Hires", "false", "bool", True, "When true, reject jobs from clients with zero hires."),
+        ("require_proposals_limit", "Enforce Proposal Limit", "false", "bool", True, "When true, reject jobs at or above the maximum proposal count."),
+        ("require_project_length", "Require Preferred Project Length", "false", "bool", True, "When true, only accept jobs with preferred project lengths."),
+        ("require_budget_range", "Enforce Fixed Budget Range", "false", "bool", True, "When true, reject fixed-price jobs outside the budget range."),
+        ("require_hourly_range", "Enforce Hourly Rate Range", "false", "bool", True, "When true, reject hourly jobs outside the hourly rate range."),
+        ("minimum_client_spent", "Minimum Client Spend", "100", "int", True, "Minimum client spend required when client spend filtering is enabled."),
+        ("maximum_proposals", "Maximum Proposals", "20", "int", True, "Maximum proposal count allowed when proposal limit filtering is enabled."),
+        ("minimum_fixed_budget", "Minimum Fixed Budget", "1000", "int", True, "Minimum fixed-price budget allowed when budget filtering is enabled."),
+        ("maximum_fixed_budget", "Maximum Fixed Budget", "100000", "int", True, "Maximum fixed-price budget allowed when budget filtering is enabled."),
+        ("minimum_hourly_rate", "Minimum Hourly Rate", "10", "int", True, "Minimum hourly rate allowed when hourly filtering is enabled."),
+        ("maximum_hourly_rate", "Maximum Hourly Rate", "50", "int", True, "Maximum hourly rate allowed when hourly filtering is enabled."),
+        ("default_prompt_template", "Default Prompt Template", "default-proposal-template", "string", True, "Prompt template key used when a job has no specific template."),
+        ("proposal_prompt_mode", "Proposal Prompt Mode", "lean", "string", True, "Proposal prompt mode. Use lean for shorter prompts or full for full-template prompts."),
+        ("proposal_max_description_chars", "Max Job Description Chars", "3500", "int", True, "Maximum job description characters sent to the AI model."),
+        ("proposal_max_template_chars", "Max Template Chars", "2200", "int", True, "Maximum template characters sent to the AI model in full mode."),
     ]
 
     rows = []
-    for name, value, value_type, enabled, description in defaults:
+    for key, display_name, value, value_type, enabled, description in defaults:
         rows.append(
             {
                 "properties": {
-                    "Setting": title_property(name),
+                    "Setting": title_property(display_name),
+                    "Setting Key": rich_text_property(key),
                     "Value": rich_text_property(str(value)),
                     "Type": select_property(value_type),
                     "Enabled": checkbox_property(enabled),
@@ -1017,12 +1244,57 @@ def ensure_seed_rows(database_id: str, rows: list[dict], title_property_name: st
     existing_titles = {get_page_title(page) for page in query_database(database_id)}
     for row in rows:
         title = "".join(
-            item.get("plain_text", "")
+            item.get("plain_text")
+            or item.get("text", {}).get("content", "")
             for item in row["properties"][title_property_name].get("title", [])
         ).strip()
         if title in existing_titles:
             continue
         create_page(database_id, row["properties"], row.get("children"))
+
+
+def get_text_from_property_payload(property_payload: dict, property_type: str) -> str:
+    return "".join(
+        item.get("plain_text")
+        or item.get("text", {}).get("content", "")
+        for item in property_payload.get(property_type, [])
+    ).strip()
+
+
+def sync_default_settings_rows(database_id: str):
+    defaults = get_default_settings_rows()
+    pages = query_database(database_id)
+    pages_by_title = {get_page_title(page): page for page in pages}
+    pages_by_key = {
+        get_plain_text_property(page, "Setting Key"): page
+        for page in pages
+        if get_plain_text_property(page, "Setting Key")
+    }
+
+    for row in defaults:
+        properties = row["properties"]
+        display_name = get_text_from_property_payload(properties["Setting"], "title")
+        setting_key = get_text_from_property_payload(properties["Setting Key"], "rich_text")
+
+        existing = (
+            pages_by_key.get(setting_key)
+            or pages_by_title.get(display_name)
+            or pages_by_title.get(setting_key)
+        )
+
+        if not existing:
+            create_page(database_id, properties, row.get("children"))
+            continue
+
+        update_page(
+            existing["id"],
+            {
+                "Setting": title_property(display_name),
+                "Setting Key": rich_text_property(setting_key),
+                "Type": properties["Type"],
+                "Description": properties["Description"],
+            },
+        )
 
 
 def record_run_history(
@@ -1084,7 +1356,7 @@ def load_scraper_settings(refresh: bool = False) -> dict:
         if not get_checkbox_property(row, "Enabled", True):
             continue
 
-        key = get_page_title(row)
+        key = get_plain_text_property(row, "Setting Key") or get_page_title(row)
         value = get_plain_text_property(row, "Value")
         value_type = get_plain_text_property(row, "Type") or "string"
 

@@ -10,6 +10,7 @@ from notion_workspace import (
     NOTION_PARENT_PAGE_ID,
     build_jobs_schema,
     configure_jobs_table_view,
+    configure_scraper_settings_table_view,
     build_prompt_templates_schema,
     build_run_history_schema,
     build_scraper_settings_schema,
@@ -19,9 +20,9 @@ from notion_workspace import (
     get_database_ids,
     get_default_prompt_templates,
     get_default_search_rows,
-    get_default_settings_rows,
     record_run_history,
     save_workspace_state,
+    sync_default_settings_rows,
 )
 
 
@@ -67,12 +68,18 @@ def main():
 
         try:
             configure_jobs_table_view(ids["jobs"])
-            print("Configured Jobs views: Jobs Table, Today, Approved, Proposal Ready.")
+            print("Configured Jobs management views.")
         except Exception as error:
             print(f"Warning: could not configure Jobs table view automatically: {error}")
 
+        try:
+            configure_scraper_settings_table_view(ids["scraper_settings"])
+            print("Configured Scraper Settings view.")
+        except Exception as error:
+            print(f"Warning: could not configure Scraper Settings table view automatically: {error}")
+
         ensure_seed_rows(ids["search_queries"], get_default_search_rows(), "Query")
-        ensure_seed_rows(ids["scraper_settings"], get_default_settings_rows(), "Setting")
+        sync_default_settings_rows(ids["scraper_settings"])
         ensure_seed_rows(ids["prompt_templates"], get_default_prompt_templates(), "Template Name")
 
         ids = get_database_ids(refresh=True)

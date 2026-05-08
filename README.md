@@ -285,7 +285,16 @@ Set `Manager Review = Approved` and `Proposal Status = Requested` in the `Jobs` 
 python webhook_server.py
 ```
 
-This server receives a POST from a Notion button and immediately dispatches the `proposal-worker.yml` workflow.
+This server receives POST requests from Notion buttons and dispatches the matching GitHub Actions workflow. Managers stay inside Notion; GitHub only runs the automation.
+
+Available Notion webhook routes:
+
+```text
+/notion/run-scraper        → dispatch scraper.yml
+/notion/proposal-request   → dispatch proposal-worker.yml
+/notion/generate-proposal  → dispatch proposal-worker.yml
+/notion/refresh-workspace  → dispatch scraper.yml with setup_only=true
+```
 
 ---
 
@@ -307,91 +316,72 @@ OPENAI_API_KEY
 OPENAI_MODEL
 ```
 
-Optional secrets:
+Optional GitHub Actions secrets:
 
 ```text
 MAX_JOB_AGE_DAYS
 NOTIFICATION_WEBHOOK_URL
-WEBHOOK_SHARED_SECRET
-GITHUB_DISPATCH_TOKEN
-GITHUB_REPOSITORY
-GITHUB_REF
-GITHUB_WORKFLOW_ID
 ```
 
-Recommended workflow:
+Webhook server environment:
 
-```yaml
-name: Upwork Scraper
-
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 */6 * * *"
-
-jobs:
-  run-scraper:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Setup Notion workspace
-        env:
-          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
-          NOTION_PARENT_PAGE_ID: ${{ secrets.NOTION_PARENT_PAGE_ID }}
-          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
-        run: python setup_notion_workspace.py
-
-      - name: Run scraper
-        env:
-          APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
-          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
-          NOTION_PARENT_PAGE_ID: ${{ secrets.NOTION_PARENT_PAGE_ID }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
-          MAX_JOB_AGE_DAYS: ${{ secrets.MAX_JOB_AGE_DAYS }}
-        run: python upwork_scraper.py
-```
-
-Proposal worker workflow:
-
-```yaml
-name: Proposal Worker
-
-on:
-  workflow_dispatch:
-    inputs:
-      notion_page_id:
-        description: "Optional Notion page id to process immediately"
-        required: false
-        type: string
-  schedule:
-    - cron: "*/15 * * * *"
+```text
+GITHUB_REPOSITORY=pourebadi/Upwork-AI-Job-Scraper-v2
+GITHUB_DISPATCH_TOKEN=github_pat_or_fine_grained_token
+WEBHOOK_SHARED_SECRET=your_shared_secret
+GITHUB_REF=main
+GITHUB_PROPOSAL_WORKFLOW_ID=proposal-worker.yml
+GITHUB_SCRAPER_WORKFLOW_ID=scraper.yml
 ```
 
 ## Notion Button Setup
 
-Create a database button in `Jobs` with these actions in order:
+Create manager-facing buttons in Notion. Do not ask the manager to open GitHub.
+
+### Control Panel Buttons
+
+Create a small Notion page or database called `Automation Control Panel`.
+
+Button: `Run Scraper Now`
+
+```text
+1. Send webhook → https://YOUR_WEBHOOK_DOMAIN/notion/run-scraper
+2. Add custom header → X-Webhook-Secret: YOUR_SHARED_SECRET
+3. Optional: Show confirmation
+```
+
+Button: `Refresh Workspace Views`
+
+```text
+1. Send webhook → https://YOUR_WEBHOOK_DOMAIN/notion/refresh-workspace
+2. Add custom header → X-Webhook-Secret: YOUR_SHARED_SECRET
+3. Optional: Show confirmation
+```
+
+### Job Button
+
+Create one database button in `Jobs` named `Generate Proposal`.
+
+Use this button when you want a proposal for one specific job. Open the job row or use the button from the table, then click `Generate Proposal`; it will approve that job, request one proposal, and trigger the proposal worker for that page.
+
+Configure the button with these actions in order:
 
 ```text
 1. Edit property → Manager Review = Approved
 2. Edit property → Proposal Status = Requested
-3. Send webhook → https://YOUR_WEBHOOK_DOMAIN/notion/proposal-request
+3. Send webhook → https://YOUR_WEBHOOK_DOMAIN/notion/generate-proposal
 4. Add custom header → X-Webhook-Secret: YOUR_SHARED_SECRET
 5. Optional: Show confirmation
 ```
 
-If the webhook payload includes a page id, the workflow will target that page immediately. If not, it will still run instantly and process all rows currently marked `Approved + Requested`.
+Expected result:
+
+```text
+Proposal Status changes from Requested → Generating → Ready.
+The generated proposal is appended inside the job page under AI Proposal.
+```
+
+If the webhook payload includes a page id, the workflow targets that page immediately. If not, it still runs instantly and processes all rows currently marked `Approved + Requested`.
 
 ---
 
@@ -421,32 +411,51 @@ To reduce Apify usage, lower `Results Per Page`.
 
 ---
 
-## Recommended Notion View
+## Digital Marketing Manager Workflow
 
-Recommended visible columns:
-
-```text
-Title
-Manager Review
-Proposal Status
-Status
-Match Score
-Discovered Day
-Published At
-Source Query
-Job Type
-Budget
-Proposals
-Gig Link
-```
-
-Recommended sort:
+The `Jobs` database is configured as a review inbox, not one endless table. Use these views for daily management:
 
 ```text
-Match Score → Descending
-Discovered Day → Descending
-Published At → Descending
+01 Today - New Jobs
+Review only jobs discovered today with Manager Review = New.
+
+02 Yesterday - Unreviewed
+Catch up on yesterday's jobs that were not reviewed.
+
+03 Needs Decision
+All unreviewed jobs across every day. This is the backlog.
+
+04 Last 7 Days
+Weekly review sorted by day and match score.
+
+05 Approved - Need Proposal
+Approved jobs that still need proposal generation.
+
+06 Proposal Ready
+Generated proposals ready to submit on Upwork.
+
+07 Applied
+Jobs already submitted.
+
+08 Rejected - Skipped
+Archived decisions that should not pollute active views.
+
+09 All Jobs by Date
+Fallback archive sorted by newest discovered day first.
 ```
+
+Daily operating flow:
+
+```text
+1. Start in 01 Today - New Jobs.
+2. Review from highest Match Score downward.
+3. Set Manager Review to Approved, Rejected, or leave New for later.
+4. Use Generate Proposal for approved jobs.
+5. Submit ready proposals from 06 Proposal Ready.
+6. Use 03 Needs Decision when today's queue is clear.
+```
+
+The active review views show decision columns such as `Manager Review`, `Proposal Status`, and `Status`. Long/internal fields such as `Job Summary`, `AI Notes`, and `Proposal Preview` stay hidden from table views.
 
 Recommended statuses:
 
