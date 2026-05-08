@@ -1710,11 +1710,8 @@ def add_job_to_notion(job: dict) -> bool:
     add_property_if_exists(properties, "Skills", rich_text_property(skills_text))
     add_property_if_exists(properties, "Category", rich_text_property(category))
     add_property_if_exists(properties, "Category Group", rich_text_property(category_group))
-    add_property_if_exists(properties, "Job Summary", rich_text_property(summary))
-    add_property_if_exists(properties, "Proposal Preview", rich_text_property(""))
     add_property_if_exists(properties, "Prompt Template", rich_text_property(template_name))
     add_property_if_exists(properties, "AI Model", rich_text_property(""))
-    add_property_if_exists(properties, "AI Notes", rich_text_property("Pending manual request"))
     add_property_if_exists(properties, "Proposal Error", rich_text_property(""))
     add_property_if_exists(properties, "Last Seen", rich_text_property(last_seen))
 

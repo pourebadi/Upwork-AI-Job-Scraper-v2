@@ -44,7 +44,7 @@ def build_job_payload(page: dict, override_template_name: str = "") -> dict:
         "id": nw.get_plain_text_property(page, "Job ID"),
         "title": nw.get_page_title(page),
         "description": description,
-        "summary": nw.get_plain_text_property(page, "Job Summary"),
+        "summary": "",
         "type": nw.get_plain_text_property(page, "Job Type"),
         "budget": nw.get_plain_text_property(page, "Budget"),
         "hourlyRate": nw.get_plain_text_property(page, "Hourly Rate"),
@@ -80,7 +80,9 @@ def set_failed(page_id: str, error_message: str):
         {
             "Proposal Status": nw.status_property("Failed"),
             "Proposal Error": nw.rich_text_property(error_message),
-            "AI Notes": nw.rich_text_property(error_message),
+            "AI Notes": nw.rich_text_property(""),
+            "Proposal Preview": nw.rich_text_property(""),
+            "Job Summary": nw.rich_text_property(""),
         },
     )
 
@@ -92,9 +94,10 @@ def set_ready(page: dict, proposal: str, ai_notes: str, model_name: str, templat
         {
             "Proposal Status": nw.status_property("Ready"),
             "Proposal Generated At": nw.date_property(nw.now_iso()),
-            "Proposal Preview": nw.rich_text_property(proposal),
+            "Proposal Preview": nw.rich_text_property(""),
             "AI Model": nw.rich_text_property(model_name),
-            "AI Notes": nw.rich_text_property(ai_notes or "OK"),
+            "AI Notes": nw.rich_text_property(""),
+            "Job Summary": nw.rich_text_property(""),
             "Proposal Error": nw.rich_text_property(""),
         },
     )
