@@ -348,7 +348,7 @@ When `setup_notion_workspace.py` runs, it also creates or refreshes a Persian kn
 3. Tick Generate Proposal on that row.
 4. Wait for Proposal Status to move to Generating and then Ready.
 5. Read the generated proposal inside the same job page.
-6. If today's list needs a refresh, open Automation Control and tick Run Scraper Now.
+6. If today's list needs a refresh, open Automation Control and click Run Scraper Link.
 ```
 
 ### What the code creates in Notion
@@ -364,7 +364,9 @@ Generate Proposal (checkbox)
 ```text
 Primary Control
 Run Scraper Now
+Run Scraper Link
 Refresh Workspace Now
+Refresh Workspace Link
 Last Result
 Last Action
 Last Completed At
@@ -389,10 +391,9 @@ Manager ticks Generate Proposal
 List refresh / workspace refresh:
 
 ```text
-Manager ticks Run Scraper Now or Refresh Workspace Now in Automation Control
-→ scraper.yml polls Notion every 15 minutes
-→ run_notion_controlled_scraper.py reads the control row
-→ it runs setup_notion_workspace.py and/or upwork_scraper.py
+Manager clicks Run Scraper Link or Refresh Workspace Link in Automation Control
+→ webhook_server.py dispatches scraper.yml immediately
+→ run_notion_controlled_scraper.py runs setup_notion_workspace.py and/or upwork_scraper.py
 → the control row is updated with result and timestamps
 ```
 
@@ -406,7 +407,7 @@ If you want actions to start immediately instead of waiting for the 15-minute po
 /notion/refresh-workspace
 ```
 
-Those buttons are optional. The checkbox-based flow above already works with the code in this repository.
+Those links/buttons are the recommended immediate flow. The checkbox-based flow remains as a fallback via the 15-minute schedule.
 
 ---
 

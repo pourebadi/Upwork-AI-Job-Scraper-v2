@@ -10,6 +10,8 @@ load_dotenv()
 
 NOTION_API_KEY = os.getenv("NOTION_API_KEY", "")
 NOTION_PARENT_PAGE_ID = os.getenv("NOTION_PARENT_PAGE_ID", "")
+WEBHOOK_PUBLIC_BASE_URL = os.getenv("WEBHOOK_PUBLIC_BASE_URL", "").strip().rstrip("/")
+WEBHOOK_SHARED_SECRET = os.getenv("WEBHOOK_SHARED_SECRET", "").strip()
 NOTION_API_URL = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
 NOTION_VIEWS_VERSION = "2026-03-11"
@@ -995,7 +997,9 @@ SCRAPER_SETTINGS_TABLE_HIDDEN_PROPERTIES = {
 AUTOMATION_CONTROL_VISIBLE_ORDER = [
     "Control",
     "Run Scraper Now",
+    "Run Scraper Link",
     "Refresh Workspace Now",
+    "Refresh Workspace Link",
     "Last Result",
     "Last Action",
     "Last Completed At",
@@ -1265,7 +1269,9 @@ def build_automation_control_schema() -> dict:
     return {
         "Control": {"title": {}},
         "Run Scraper Now": {"checkbox": {}},
+        "Run Scraper Link": {"url": {}},
         "Refresh Workspace Now": {"checkbox": {}},
+        "Refresh Workspace Link": {"url": {}},
         "Last Action": {"rich_text": {}},
         "Last Result": {
             "status": {
@@ -1282,6 +1288,17 @@ def build_automation_control_schema() -> dict:
         "Last Scraper Run At": {"date": {}},
         "Last Workspace Refresh At": {"date": {}},
     }
+
+
+def build_webhook_action_url(path: str) -> str:
+    if not WEBHOOK_PUBLIC_BASE_URL:
+        return ""
+
+    url = f"{WEBHOOK_PUBLIC_BASE_URL}{path}"
+    if WEBHOOK_SHARED_SECRET:
+        separator = "&" if "?" in url else "?"
+        url = f"{url}{separator}secret={WEBHOOK_SHARED_SECRET}"
+    return url
 
 
 def build_scraper_settings_schema() -> dict:
@@ -1373,15 +1390,24 @@ def get_default_search_rows() -> list[dict]:
 
 
 def get_default_automation_control_rows() -> list[dict]:
+    run_scraper_link = build_webhook_action_url("/notion/run-scraper")
+    refresh_workspace_link = build_webhook_action_url("/notion/refresh-workspace")
+    usage_message = (
+        "برای اجرای فوری، روی Run Scraper Link کلیک کن. "
+        "اگر لینک هنوز تنظیم نشده، WEBHOOK_PUBLIC_BASE_URL را روی سرور ست کن. "
+        "checkboxها فقط fallback هستند و با schedule کار می‌کنند."
+    )
     return [
         {
             "properties": {
                 "Control": title_property("Primary Control"),
                 "Run Scraper Now": checkbox_property(False),
+                "Run Scraper Link": url_property(run_scraper_link),
                 "Refresh Workspace Now": checkbox_property(False),
+                "Refresh Workspace Link": url_property(refresh_workspace_link),
                 "Last Action": rich_text_property(""),
                 "Last Result": status_property("Idle"),
-                "Last Message": rich_text_property(""),
+                "Last Message": rich_text_property(usage_message),
                 "Last Completed At": date_property(""),
                 "Last Scraper Run At": date_property(""),
                 "Last Workspace Refresh At": date_property(""),
@@ -1507,6 +1533,26 @@ def sync_default_settings_rows(database_id: str):
         )
 
 
+def sync_automation_control_row(database_id: str):
+    defaults = get_default_automation_control_rows()
+    existing = find_page_by_title(database_id, "Primary Control")
+
+    if not existing:
+        create_page(database_id, defaults[0]["properties"], defaults[0].get("children"))
+        return
+
+    properties = defaults[0]["properties"]
+    updates = {
+        "Run Scraper Link": properties["Run Scraper Link"],
+        "Refresh Workspace Link": properties["Refresh Workspace Link"],
+    }
+
+    if not get_plain_text_property(existing, "Last Message"):
+        updates["Last Message"] = properties["Last Message"]
+
+    update_page(existing["id"], updates)
+
+
 def build_persian_knowledge_base_blocks() -> list[dict]:
     blocks = [
         callout_block(
@@ -1530,7 +1576,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
                 paragraph_block("1. وارد دیتابیس Jobs می‌شود."),
                 paragraph_block("2. از ویوی 01 Today - New Jobs یا 03 Needs Decision شروع می‌کند."),
                 paragraph_block("3. جاب خوب را بررسی می‌کند و اگر مناسب بود تیک Generate Proposal را می‌زند."),
-                paragraph_block("4. اگر نیاز به جاب‌های جدید داشت، در دیتابیس Automation Control گزینه Run Scraper Now را فعال می‌کند."),
+                paragraph_block("4. اگر نیاز به جاب‌های جدید داشت، در دیتابیس Automation Control روی Run Scraper Link کلیک می‌کند."),
                 paragraph_block("5. خروجی proposal را در همان صفحه جاب و نتایج اجرا را در Run History می‌بیند."),
             ],
         ),
@@ -1554,8 +1600,9 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             "Automation Control",
             [
                 paragraph_block("پنل کنترل روزانه برای کارهای اجرایی است."),
-                paragraph_block("Run Scraper Now: اگر فعال شود، در چرخه بعدی scraper اجرا می‌شود و لیست جاب‌ها آپدیت می‌شود."),
-                paragraph_block("Refresh Workspace Now: اگر فعال شود، ساختار و viewهای Notion دوباره sync می‌شوند."),
+                paragraph_block("Run Scraper Link: اجرای فوری scraper از داخل Notion."),
+                paragraph_block("Refresh Workspace Link: اجرای فوری sync ساختار و viewهای workspace."),
+                paragraph_block("Run Scraper Now و Refresh Workspace Now: fallback checkbox برای اجرای زمان‌بندی‌شده."),
                 paragraph_block("Last Result / Last Action / Last Message: آخرین نتیجه و توضیح اجرا را نشان می‌دهد."),
             ],
         ),
@@ -1653,7 +1700,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             [
                 paragraph_block("1. وارد دیتابیس Automation Control شو."),
                 paragraph_block("2. ردیف Primary Control را باز کن."),
-                paragraph_block("3. تیک Run Scraper Now را فعال کن."),
+                paragraph_block("3. روی Run Scraper Link کلیک کن."),
                 paragraph_block("4. نتیجه را از Last Result و Last Message ببین."),
             ],
         ),
@@ -1678,7 +1725,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
         toggle_block(
             "اگر جاب جدید نیامد",
             [
-                paragraph_block("در Automation Control نتیجه Run Scraper Now را ببین."),
+                paragraph_block("در Automation Control نتیجه Run Scraper Link یا Last Message را ببین."),
                 paragraph_block("Search Queries و Scraper Settings را چک کن."),
                 paragraph_block("Run History را برای خطاهای scrape یا setup نگاه کن."),
             ],

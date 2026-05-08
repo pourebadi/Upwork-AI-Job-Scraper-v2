@@ -21,11 +21,11 @@ from notion_workspace import (
     ensure_persian_knowledge_base_page,
     ensure_seed_rows,
     get_database_ids,
-    get_default_automation_control_rows,
     get_default_prompt_templates,
     get_default_search_rows,
     record_run_history,
     save_workspace_state,
+    sync_automation_control_row,
     sync_default_settings_rows,
 )
 
@@ -93,7 +93,7 @@ def main():
         except Exception as error:
             print(f"Warning: could not configure Scraper Settings table view automatically: {error}")
 
-        ensure_seed_rows(ids["automation_control"], get_default_automation_control_rows(), "Control")
+        sync_automation_control_row(ids["automation_control"])
         ensure_seed_rows(ids["search_queries"], get_default_search_rows(), "Query")
         sync_default_settings_rows(ids["scraper_settings"])
         ensure_seed_rows(ids["prompt_templates"], get_default_prompt_templates(), "Template Name")

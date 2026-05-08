@@ -231,6 +231,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
+        query = parse_qs(parsed.query)
 
         if parsed.path == "/health":
             self._write_json(
@@ -242,6 +243,35 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     "legacy_path": WEBHOOK_PATH,
                 },
             )
+            return
+
+        if parsed.path in ACTION_ROUTES:
+            if WEBHOOK_SHARED_SECRET:
+                provided_secret = (
+                    self.headers.get("X-Webhook-Secret")
+                    or self.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+                    or query.get("secret", [""])[0]
+                    or query.get("token", [""])[0]
+                )
+                if provided_secret != WEBHOOK_SHARED_SECRET:
+                    self._write_json(HTTPStatus.UNAUTHORIZED, {"ok": False, "error": "Unauthorized"})
+                    return
+
+            payload = {
+                "page_id": query.get("page_id", [""])[0] or query.get("notion_page_id", [""])[0],
+                "action": ACTION_ROUTES[parsed.path],
+            }
+
+            try:
+                page_id = extract_page_id(payload)
+                result = dispatch_workflow(ACTION_ROUTES[parsed.path], page_id, payload)
+                self._write_json(HTTPStatus.OK, result)
+            except Exception as error:
+                logger.exception("Webhook dispatch failed")
+                self._write_json(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    {"ok": False, "error": str(error)},
+                )
             return
 
         self._write_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Not found"})
