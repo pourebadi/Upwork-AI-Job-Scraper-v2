@@ -14,6 +14,7 @@ NOTION_API_URL = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
 NOTION_VIEWS_VERSION = "2026-03-11"
 WORKSPACE_STATE_PATH = ".notion_workspace.json"
+KNOWLEDGE_BASE_PAGE_TITLE = "راهنمای فارسی سیستم جذب و مدیریت جاب"
 
 DATABASE_TITLES = {
     "jobs": "Jobs",
@@ -312,6 +313,17 @@ def notion_post(path: str, payload: Optional[dict] = None, **kwargs) -> dict:
     return response.json()
 
 
+def notion_delete(path: str, **kwargs) -> dict:
+    response = requests.delete(
+        f"{NOTION_API_URL}{path}",
+        headers=notion_headers(),
+        timeout=30,
+        **kwargs,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def notion_patch(path: str, payload: Optional[dict] = None, **kwargs) -> dict:
     response = requests.patch(
         f"{NOTION_API_URL}{path}",
@@ -381,6 +393,30 @@ def search_databases_by_title(title: str) -> list[dict]:
     return results
 
 
+def search_pages_by_title(title: str) -> list[dict]:
+    results = []
+    cursor = None
+
+    while True:
+        payload = {
+            "query": title,
+            "filter": {"value": "page", "property": "object"},
+            "page_size": 100,
+        }
+        if cursor:
+            payload["start_cursor"] = cursor
+
+        data = notion_post("/search", payload)
+        results.extend(data.get("results", []))
+
+        if not data.get("has_more"):
+            break
+
+        cursor = data.get("next_cursor")
+
+    return results
+
+
 def get_database_title(database: dict) -> str:
     parts = database.get("title", [])
     return "".join(part.get("plain_text", "") for part in parts).strip()
@@ -394,6 +430,18 @@ def find_database_under_parent(parent_page_id: str, title: str) -> Optional[dict
         parent = database.get("parent", {})
         if parent.get("type") == "page_id" and parent.get("page_id") == parent_page_id:
             return database
+
+    return None
+
+
+def find_page_under_parent(parent_page_id: str, title: str) -> Optional[dict]:
+    for page in search_pages_by_title(title):
+        if get_page_title(page) != title:
+            continue
+
+        parent = page.get("parent", {})
+        if parent.get("type") == "page_id" and parent.get("page_id") == parent_page_id:
+            return page
 
     return None
 
@@ -502,12 +550,28 @@ def create_page(database_id: str, properties: dict, children: Optional[list[dict
     return notion_post("/pages", payload)
 
 
+def create_child_page(parent_page_id: str, title: str, children: Optional[list[dict]] = None) -> dict:
+    payload = {
+        "parent": {"type": "page_id", "page_id": parent_page_id},
+        "properties": {
+            "title": title_property(title),
+        },
+    }
+    if children:
+        payload["children"] = children
+    return notion_post("/pages", payload)
+
+
 def update_page(page_id: str, properties: dict) -> dict:
     return notion_patch(f"/pages/{page_id}", {"properties": properties})
 
 
 def append_block_children(block_id: str, children: list[dict]) -> dict:
     return notion_patch(f"/blocks/{block_id}/children", {"children": children})
+
+
+def delete_block(block_id: str) -> dict:
+    return notion_delete(f"/blocks/{block_id}")
 
 
 def list_block_children(block_id: str) -> list[dict]:
@@ -528,6 +592,13 @@ def list_block_children(block_id: str) -> list[dict]:
         cursor = data.get("next_cursor")
 
     return results
+
+
+def replace_page_children(page_id: str, children: list[dict]):
+    for block in list_block_children(page_id):
+        delete_block(block["id"])
+    if children:
+        append_block_children(page_id, children)
 
 
 def find_page_by_title(database_id: str, title: str) -> Optional[dict]:
@@ -1434,6 +1505,202 @@ def sync_default_settings_rows(database_id: str):
                 "Description": properties["Description"],
             },
         )
+
+
+def build_persian_knowledge_base_blocks() -> list[dict]:
+    blocks = [
+        callout_block(
+            "این صفحه راهنمای فارسیِ کل سیستم است. هدفش این است که مدیر دیجیتال مارکتینگ و هر عضو تیم بدون نیاز به باز کردن کد یا GitHub بداند هر بخش برای چیست و هر اقدام را از کجا باید انجام دهد.",
+            "📘",
+        ),
+        paragraph_block(
+            "این سیستم سه کار اصلی انجام می‌دهد: جاب‌های جدید Upwork را جمع می‌کند، آن‌ها را در Notion برای بررسی روزانه منظم می‌کند، و برای جاب‌های تاییدشده proposal می‌سازد."
+        ),
+        divider_block(),
+        heading_block("نقشه کلی سیستم"),
+        callout_block(
+            "ورودی: Upwork + تنظیمات Notion\n"
+            "پردازش: Python + GitHub Actions\n"
+            "خروجی: دیتابیس Jobs + Proposal + Run History داخل Notion",
+            "🧭",
+        ),
+        toggle_block(
+            "جریان روزانه مدیر دیجیتال مارکتینگ",
+            [
+                paragraph_block("1. وارد دیتابیس Jobs می‌شود."),
+                paragraph_block("2. از ویوی 01 Today - New Jobs یا 03 Needs Decision شروع می‌کند."),
+                paragraph_block("3. جاب خوب را بررسی می‌کند و اگر مناسب بود تیک Generate Proposal را می‌زند."),
+                paragraph_block("4. اگر نیاز به جاب‌های جدید داشت، در دیتابیس Automation Control گزینه Run Scraper Now را فعال می‌کند."),
+                paragraph_block("5. خروجی proposal را در همان صفحه جاب و نتایج اجرا را در Run History می‌بیند."),
+            ],
+        ),
+        divider_block(),
+        heading_block("دیتابیس‌ها و نقش هرکدام"),
+        toggle_block(
+            "Jobs",
+            [
+                paragraph_block("مرکز اصلی بررسی جاب‌ها است. هر ردیف یک job از Upwork است."),
+                paragraph_block("مهم‌ترین propertyها:"),
+                paragraph_block("Title: عنوان جاب"),
+                paragraph_block("Generate Proposal: تریگر ساده برای ساخت proposal"),
+                paragraph_block("Manager Review: وضعیت تایید یا رد توسط مدیر"),
+                paragraph_block("Proposal Status: وضعیت ساخت proposal"),
+                paragraph_block("Match Score: امتیاز کیفیت جاب برای اولویت‌بندی"),
+                paragraph_block("Published At / Discovered Day: زمان انتشار و زمان کشف جاب"),
+                paragraph_block("Budget / Job Type / Proposals / Gig Link: اطلاعات اصلی برای تصمیم‌گیری سریع"),
+            ],
+        ),
+        toggle_block(
+            "Automation Control",
+            [
+                paragraph_block("پنل کنترل روزانه برای کارهای اجرایی است."),
+                paragraph_block("Run Scraper Now: اگر فعال شود، در چرخه بعدی scraper اجرا می‌شود و لیست جاب‌ها آپدیت می‌شود."),
+                paragraph_block("Refresh Workspace Now: اگر فعال شود، ساختار و viewهای Notion دوباره sync می‌شوند."),
+                paragraph_block("Last Result / Last Action / Last Message: آخرین نتیجه و توضیح اجرا را نشان می‌دهد."),
+            ],
+        ),
+        toggle_block(
+            "Search Queries",
+            [
+                paragraph_block("تنظیم می‌کند scraper دقیقاً چه نوع جاب‌هایی را بگردد."),
+                paragraph_block("هر ردیف یک query است. با Enabled می‌شود query را روشن یا خاموش کرد."),
+                paragraph_block("Results Per Page, Min Budget, Max Budget و Max Age Days رفتار جست‌وجو را کنترل می‌کنند."),
+            ],
+        ),
+        toggle_block(
+            "Scraper Settings",
+            [
+                paragraph_block("تنظیمات کلی سیستم اینجا نگه‌داری می‌شود."),
+                paragraph_block("Value مقدار هر تنظیم است، Type نوع آن را مشخص می‌کند و Description توضیح انسانی آن است."),
+                paragraph_block("نمونه‌ها: OpenAI Model، Max Job Age (Days)، Maximum Proposals، Minimum Client Spend."),
+            ],
+        ),
+        toggle_block(
+            "Prompt Templates",
+            [
+                paragraph_block("قالب نوشتن proposal را نگه می‌دارد."),
+                paragraph_block("اگر لحن یا ساختار proposal عوض شود، معمولاً از اینجا یا از فایل template اصلی مدیریت می‌شود."),
+            ],
+        ),
+        toggle_block(
+            "Run History",
+            [
+                paragraph_block("تاریخچه اجرای scraper، setup و proposal generation را نگه می‌دارد."),
+                paragraph_block("اگر چیزی fail شود، اول اینجا چک می‌شود."),
+            ],
+        ),
+        divider_block(),
+        heading_block("معنای propertyهای مهم در Jobs"),
+        toggle_block(
+            "Propertyهای تصمیم‌گیری روزانه",
+            [
+                paragraph_block("Generate Proposal: اگر تیک بخورد، سیستم برای همین جاب proposal می‌سازد."),
+                paragraph_block("Manager Review: New یعنی هنوز بررسی نشده، Approved یعنی تایید شده، Rejected یعنی رد شده."),
+                paragraph_block("Proposal Status: Not Requested, Requested, Generating, Ready, Failed."),
+                paragraph_block("Status: وضعیت کلی داخلی مثل Draft, Applied, Rejected, Skipped."),
+                paragraph_block("Match Score: هر چه بالاتر باشد، احتمال مناسب بودن جاب بیشتر است."),
+            ],
+        ),
+        toggle_block(
+            "Propertyهای اطلاعات جاب",
+            [
+                paragraph_block("Job Type: Hourly یا Fixed."),
+                paragraph_block("Budget و Hourly Rate: محدوده مالی پروژه."),
+                paragraph_block("Client Hires و Client Spent: کیفیت و سابقه کارفرما."),
+                paragraph_block("Proposals: میزان رقابت روی جاب."),
+                paragraph_block("Gig Link: لینک اصلی Upwork."),
+                paragraph_block("Source Query: مشخص می‌کند این جاب از کدام query پیدا شده است."),
+            ],
+        ),
+        toggle_block(
+            "Propertyهایی که عمداً در جدول پنهان هستند",
+            [
+                paragraph_block("AI Model"),
+                paragraph_block("AI Notes"),
+                paragraph_block("Job ID"),
+                paragraph_block("Job Summary"),
+                paragraph_block("Prompt Template"),
+                paragraph_block("Proposal Error"),
+                paragraph_block("Proposal Preview"),
+                paragraph_block("Proposal Requested At"),
+            ],
+        ),
+        divider_block(),
+        heading_block("ویوهای مهم برای کار روزانه"),
+        toggle_block(
+            "Review Inbox",
+            [
+                paragraph_block("01 Today - New Jobs: جاب‌های امروز که هنوز بررسی نشده‌اند."),
+                paragraph_block("02 Yesterday - Unreviewed: جاب‌های دیروز که هنوز backlog مانده‌اند."),
+                paragraph_block("03 Needs Decision: همه جاب‌های تصمیم‌نگرفته."),
+                paragraph_block("04 Last 7 Days: مرور هفتگی برای عقب‌افتادگی‌ها."),
+            ],
+        ),
+        toggle_block(
+            "Proposal و آرشیو",
+            [
+                paragraph_block("05 Approved - Need Proposal: جاب‌های تاییدشده که هنوز proposal نگرفته‌اند."),
+                paragraph_block("06 Proposal Ready: proposal ساخته شده و آماده استفاده است."),
+                paragraph_block("07 Applied: جاب‌هایی که اقدام نهایی روی آن‌ها انجام شده است."),
+                paragraph_block("08 Rejected - Skipped: موارد آرشیوی که نباید جدول اصلی را شلوغ کنند."),
+                paragraph_block("09 All Jobs by Date: آرشیو کامل به ترتیب روز."),
+            ],
+        ),
+        divider_block(),
+        heading_block("چطور از داخل Notion کارها را اجرا کنیم"),
+        toggle_block(
+            "آپدیت لیست جاب‌ها",
+            [
+                paragraph_block("1. وارد دیتابیس Automation Control شو."),
+                paragraph_block("2. ردیف Primary Control را باز کن."),
+                paragraph_block("3. تیک Run Scraper Now را فعال کن."),
+                paragraph_block("4. نتیجه را از Last Result و Last Message ببین."),
+            ],
+        ),
+        toggle_block(
+            "ساخت proposal برای یک جاب",
+            [
+                paragraph_block("1. جاب را در Jobs باز کن یا در همان جدول پیدا کن."),
+                paragraph_block("2. Generate Proposal را فعال کن."),
+                paragraph_block("3. سیستم خودش Manager Review و Proposal Status را مدیریت می‌کند."),
+                paragraph_block("4. خروجی در همان صفحه زیر AI Proposal می‌آید."),
+            ],
+        ),
+        divider_block(),
+        heading_block("عیب‌یابی سریع"),
+        toggle_block(
+            "اگر proposal ساخته نشد",
+            [
+                paragraph_block("Proposal Status را چک کن: اگر Failed شد، Run History و Last Message را ببین."),
+                paragraph_block("مطمئن شو OPENAI_API_KEY و تنظیمات prompt درست هستند."),
+            ],
+        ),
+        toggle_block(
+            "اگر جاب جدید نیامد",
+            [
+                paragraph_block("در Automation Control نتیجه Run Scraper Now را ببین."),
+                paragraph_block("Search Queries و Scraper Settings را چک کن."),
+                paragraph_block("Run History را برای خطاهای scrape یا setup نگاه کن."),
+            ],
+        ),
+        callout_block(
+            "قاعده ساده برای تیم: همه چیز از داخل Notion انجام می‌شود. GitHub و کد برای مدیر روزانه ابزار عملیاتی نیستند.",
+            "✅",
+        ),
+    ]
+    return blocks
+
+
+def ensure_persian_knowledge_base_page(parent_page_id: str) -> str:
+    children = build_persian_knowledge_base_blocks()
+    existing = find_page_under_parent(parent_page_id, KNOWLEDGE_BASE_PAGE_TITLE)
+
+    if existing:
+        replace_page_children(existing["id"], children)
+        return existing["id"]
+
+    created = create_child_page(parent_page_id, KNOWLEDGE_BASE_PAGE_TITLE, children)
+    return created["id"]
 
 
 def record_run_history(

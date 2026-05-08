@@ -18,6 +18,7 @@ from notion_workspace import (
     build_scraper_settings_schema,
     build_search_queries_schema,
     ensure_database,
+    ensure_persian_knowledge_base_page,
     ensure_seed_rows,
     get_database_ids,
     get_default_automation_control_rows,
@@ -96,6 +97,7 @@ def main():
         ensure_seed_rows(ids["search_queries"], get_default_search_rows(), "Query")
         sync_default_settings_rows(ids["scraper_settings"])
         ensure_seed_rows(ids["prompt_templates"], get_default_prompt_templates(), "Template Name")
+        ensure_persian_knowledge_base_page(NOTION_PARENT_PAGE_ID)
 
         ids = get_database_ids(refresh=True)
 

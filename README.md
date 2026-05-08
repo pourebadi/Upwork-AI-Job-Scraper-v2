@@ -338,6 +338,8 @@ GITHUB_SCRAPER_WORKFLOW_ID=scraper.yml
 
 The repository now supports a fully coded Notion-first flow with no daily GitHub clicks.
 
+When `setup_notion_workspace.py` runs, it also creates or refreshes a Persian knowledge-base page under the same parent page in Notion. That page explains the databases, properties, daily workflow, and troubleshooting steps for the team.
+
 ### Daily manager workflow
 
 ```text
