@@ -839,9 +839,24 @@ def configure_jobs_table_view(database_id: str):
         return
 
     data_source_id = table_views[0].get("data_source_id")
+    available_table_views = list(table_views)
+    claimed_view_ids = set()
 
     for spec in build_jobs_named_view_specs():
         existing = next((view for view in table_views if view.get("name") == spec["name"]), None)
+        target_view = existing
+
+        if existing:
+            claimed_view_ids.add(existing["id"])
+            available_table_views = [
+                view for view in available_table_views
+                if view["id"] not in claimed_view_ids
+            ]
+
+        if target_view is None and available_table_views:
+            target_view = available_table_views.pop(0)
+            claimed_view_ids.add(target_view["id"])
+
         configuration = build_jobs_table_view_configuration(
             database,
             spec.get("visible_order"),
@@ -853,8 +868,8 @@ def configure_jobs_table_view(database_id: str):
             "configuration": configuration,
         }
 
-        if existing:
-            update_view(existing["id"], payload)
+        if target_view:
+            update_view(target_view["id"], payload)
             continue
 
         if not data_source_id:
