@@ -334,86 +334,77 @@ GITHUB_PROPOSAL_WORKFLOW_ID=proposal-worker.yml
 GITHUB_SCRAPER_WORKFLOW_ID=scraper.yml
 ```
 
-## Notion Button Setup
+## Notion-First Automation
 
-Create manager-facing buttons in Notion. Do not ask the manager to open GitHub.
+The repository now supports a fully coded Notion-first flow with no daily GitHub clicks.
 
-Recommended non-technical manager flow:
+### Daily manager workflow
 
 ```text
 1. Open Jobs in Notion.
 2. Review a job in the list or open its page.
-3. Click one button: Generate Proposal.
-4. Do not edit Manager Review or Proposal Status manually.
-5. Wait for Proposal Status to move to Generating and then Ready.
-6. Read the generated proposal inside the same job page.
+3. Tick Generate Proposal on that row.
+4. Wait for Proposal Status to move to Generating and then Ready.
+5. Read the generated proposal inside the same job page.
+6. If today's list needs a refresh, open Automation Control and tick Run Scraper Now.
 ```
 
-### Control Panel Buttons
+### What the code creates in Notion
 
-Create a small Notion page or database called `Automation Control Panel`.
-
-Button: `Run Scraper Now`
+`Jobs` database:
 
 ```text
-1. Send webhook → https://YOUR_WEBHOOK_DOMAIN/notion/run-scraper
-2. Add custom header → X-Webhook-Secret: YOUR_SHARED_SECRET
-3. Optional: Show confirmation
+Generate Proposal (checkbox)
 ```
 
-Button: `Refresh Workspace Views`
+`Automation Control` database:
 
 ```text
-1. Send webhook → https://YOUR_WEBHOOK_DOMAIN/notion/refresh-workspace
-2. Add custom header → X-Webhook-Secret: YOUR_SHARED_SECRET
-3. Optional: Show confirmation
+Primary Control
+Run Scraper Now
+Refresh Workspace Now
+Last Result
+Last Action
+Last Completed At
+Last Scraper Run At
+Last Workspace Refresh At
+Last Message
 ```
 
-### Job Button
+### How it works
 
-Create one database button in `Jobs` named `Generate Proposal`.
-
-Use this button when you want a proposal for one specific job. Open the job row or use the button from the table, then click `Generate Proposal`.
-
-This is the exact one-click flow for the manager:
+Proposal generation:
 
 ```text
-Click Generate Proposal
-→ Notion sets Manager Review = Approved
-→ Notion sets Proposal Status = Requested
-→ Notion sends webhook to the router
-→ webhook_server.py dispatches Proposal Worker in GitHub Actions
-→ generate_requested_proposals.py updates the same page
-→ Proposal Status becomes Generating and then Ready
-→ The proposal appears under AI Proposal inside the same job page
+Manager ticks Generate Proposal
+→ proposal-worker.yml polls Notion every 15 minutes
+→ generate_requested_proposals.py picks up checked jobs
+→ it auto-approves the job and sets Proposal Status to Generating
+→ proposal text is written back into the same page
+→ Proposal Status becomes Ready
 ```
 
-Configure the button with these actions in order:
+List refresh / workspace refresh:
 
 ```text
-1. Edit property → Manager Review = Approved
-2. Edit property → Proposal Status = Requested
-3. Send webhook → https://YOUR_WEBHOOK_DOMAIN/notion/generate-proposal
-4. Add custom header → X-Webhook-Secret: YOUR_SHARED_SECRET
-5. Optional: Show confirmation
+Manager ticks Run Scraper Now or Refresh Workspace Now in Automation Control
+→ scraper.yml polls Notion every 15 minutes
+→ run_notion_controlled_scraper.py reads the control row
+→ it runs setup_notion_workspace.py and/or upwork_scraper.py
+→ the control row is updated with result and timestamps
 ```
 
-Expected result:
+### Optional instant buttons
+
+If you want actions to start immediately instead of waiting for the 15-minute poll, you can still add Notion buttons that call these webhook routes:
 
 ```text
-Proposal Status changes from Requested → Generating → Ready.
-The generated proposal is appended inside the job page under AI Proposal.
+/notion/run-scraper
+/notion/generate-proposal
+/notion/refresh-workspace
 ```
 
-If the webhook payload includes a page id, the workflow targets that page immediately. If not, it still runs instantly and processes all rows currently marked `Approved + Requested`.
-
-Important implementation note:
-
-```text
-Use a Notion database button property for Generate Proposal.
-Do not rely on the manager to edit statuses manually.
-GitHub is only the execution engine behind the webhook.
-```
+Those buttons are optional. The checkbox-based flow above already works with the code in this repository.
 
 ---
 
@@ -482,12 +473,12 @@ Daily operating flow:
 1. Start in 01 Today - New Jobs.
 2. Review from highest Match Score downward.
 3. Set Manager Review to Approved, Rejected, or leave New for later.
-4. Use Generate Proposal for approved jobs.
+4. Tick Generate Proposal for approved jobs.
 5. Submit ready proposals from 06 Proposal Ready.
 6. Use 03 Needs Decision when today's queue is clear.
 ```
 
-The active review views show decision columns such as `Manager Review`, `Proposal Status`, and `Status`. Long/internal fields such as `Job Summary`, `AI Notes`, and `Proposal Preview` stay hidden from table views.
+The active review views show decision columns such as `Generate Proposal`, `Manager Review`, `Proposal Status`, and `Status`. Long/internal fields such as `Job Summary`, `AI Notes`, and `Proposal Preview` stay hidden from table views.
 
 Recommended statuses:
 

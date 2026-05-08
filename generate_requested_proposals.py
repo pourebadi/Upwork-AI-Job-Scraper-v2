@@ -67,6 +67,8 @@ def set_generating(page_id: str):
     nw.update_page(
         page_id,
         {
+            "Generate Proposal": nw.checkbox_property(False),
+            "Manager Review": nw.status_property("Approved"),
             "Proposal Status": nw.status_property("Generating"),
             "Proposal Requested At": nw.date_property(nw.now_iso()),
             "Proposal Error": nw.rich_text_property(""),
@@ -78,6 +80,7 @@ def set_failed(page_id: str, error_message: str):
     nw.update_page(
         page_id,
         {
+            "Generate Proposal": nw.checkbox_property(False),
             "Proposal Status": nw.status_property("Failed"),
             "Proposal Error": nw.rich_text_property(error_message),
             "AI Notes": nw.rich_text_property(""),
@@ -92,6 +95,8 @@ def set_ready(page: dict, proposal: str, ai_notes: str, model_name: str, templat
     nw.update_page(
         page_id,
         {
+            "Generate Proposal": nw.checkbox_property(False),
+            "Manager Review": nw.status_property("Approved"),
             "Proposal Status": nw.status_property("Ready"),
             "Proposal Generated At": nw.date_property(nw.now_iso()),
             "Proposal Preview": nw.rich_text_property(""),
@@ -129,8 +134,12 @@ def get_requested_jobs() -> list[dict]:
 
         manager_review = nw.get_plain_text_property(page, "Manager Review")
         proposal_status = nw.get_plain_text_property(page, "Proposal Status")
+        proposal_checkbox = nw.get_checkbox_property(page, "Generate Proposal", False)
 
-        if manager_review == "Approved" and proposal_status == "Requested":
+        if proposal_status == "Generating":
+            continue
+
+        if proposal_checkbox or (manager_review == "Approved" and proposal_status == "Requested"):
             requested.append(page)
 
     return requested

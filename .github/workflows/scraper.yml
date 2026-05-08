@@ -17,7 +17,7 @@ on:
           - "false"
           - "true"
   schedule:
-    - cron: "0 */6 * * *"
+    - cron: "*/15 * * * *"
 
 jobs:
   run-scraper:
@@ -35,15 +35,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Setup Notion workspace
-        env:
-          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
-          NOTION_PARENT_PAGE_ID: ${{ secrets.NOTION_PARENT_PAGE_ID }}
-          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
-        run: python setup_notion_workspace.py
-
-      - name: Run scraper
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.setup_only != 'true' }}
+      - name: Run Notion-controlled scraper
         env:
           APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
@@ -51,4 +43,6 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
           MAX_JOB_AGE_DAYS: ${{ secrets.MAX_JOB_AGE_DAYS }}
-        run: python upwork_scraper.py
+          RUN_TRIGGER_SOURCE: ${{ github.event_name == 'workflow_dispatch' && inputs.trigger_source || 'schedule' }}
+          SETUP_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.setup_only || 'false' }}
+        run: python run_notion_controlled_scraper.py

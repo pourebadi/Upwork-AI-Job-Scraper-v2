@@ -1624,9 +1624,9 @@ def add_job_to_notion(job: dict) -> bool:
     add_callout_chunks(
         children,
         (
-            "After review, click the Generate Proposal button on this row or page. "
-            "That one click is enough: it approves the job, requests the proposal, "
-            "and starts generation. Do not change statuses manually."
+            "After review, tick the Generate Proposal checkbox on this row or page. "
+            "That one action is enough: the automation approves the job, requests the "
+            "proposal, and starts generation. Do not change statuses manually."
         ),
         "🧠"
     )
@@ -1689,6 +1689,7 @@ def add_job_to_notion(job: dict) -> bool:
     }
 
     add_property_if_exists(properties, "Status", {"status": {"name": "Draft"}})
+    add_property_if_exists(properties, "Generate Proposal", nw.checkbox_property(False))
     add_property_if_exists(properties, "Manager Review", {"status": {"name": "New"}})
     add_property_if_exists(properties, "Proposal Status", {"status": {"name": "Not Requested"}})
     add_property_if_exists(properties, "Match Score", {"number": match_score})

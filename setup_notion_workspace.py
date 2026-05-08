@@ -8,7 +8,9 @@ Creates and syncs the Notion-first workspace under a single parent page.
 from notion_workspace import (
     NOTION_API_KEY,
     NOTION_PARENT_PAGE_ID,
+    build_automation_control_schema,
     build_jobs_schema,
+    configure_automation_control_table_view,
     configure_jobs_table_view,
     configure_scraper_settings_table_view,
     build_prompt_templates_schema,
@@ -18,6 +20,7 @@ from notion_workspace import (
     ensure_database,
     ensure_seed_rows,
     get_database_ids,
+    get_default_automation_control_rows,
     get_default_prompt_templates,
     get_default_search_rows,
     record_run_history,
@@ -42,6 +45,11 @@ def main():
 
         ids = {
             "jobs": ensure_database(NOTION_PARENT_PAGE_ID, "jobs", build_jobs_schema()),
+            "automation_control": ensure_database(
+                NOTION_PARENT_PAGE_ID,
+                "automation_control",
+                build_automation_control_schema(),
+            ),
             "search_queries": ensure_database(
                 NOTION_PARENT_PAGE_ID,
                 "search_queries",
@@ -73,11 +81,18 @@ def main():
             print(f"Warning: could not configure Jobs table view automatically: {error}")
 
         try:
+            configure_automation_control_table_view(ids["automation_control"])
+            print("Configured Automation Control view.")
+        except Exception as error:
+            print(f"Warning: could not configure Automation Control view automatically: {error}")
+
+        try:
             configure_scraper_settings_table_view(ids["scraper_settings"])
             print("Configured Scraper Settings view.")
         except Exception as error:
             print(f"Warning: could not configure Scraper Settings table view automatically: {error}")
 
+        ensure_seed_rows(ids["automation_control"], get_default_automation_control_rows(), "Control")
         ensure_seed_rows(ids["search_queries"], get_default_search_rows(), "Query")
         sync_default_settings_rows(ids["scraper_settings"])
         ensure_seed_rows(ids["prompt_templates"], get_default_prompt_templates(), "Template Name")

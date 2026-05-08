@@ -17,6 +17,7 @@ WORKSPACE_STATE_PATH = ".notion_workspace.json"
 
 DATABASE_TITLES = {
     "jobs": "Jobs",
+    "automation_control": "Automation Control",
     "search_queries": "Search Queries",
     "scraper_settings": "Scraper Settings",
     "run_history": "Run History",
@@ -25,6 +26,7 @@ DATABASE_TITLES = {
 
 DATABASE_ID_ENV_MAP = {
     "jobs": "NOTION_JOBS_DATABASE_ID",
+    "automation_control": "NOTION_AUTOMATION_CONTROL_DATABASE_ID",
     "search_queries": "NOTION_SEARCH_QUERIES_DATABASE_ID",
     "scraper_settings": "NOTION_SCRAPER_SETTINGS_DATABASE_ID",
     "run_history": "NOTION_RUN_HISTORY_DATABASE_ID",
@@ -58,6 +60,7 @@ JOBS_TABLE_VISIBLE_ORDER = [
 
 JOBS_REVIEW_VISIBLE_ORDER = [
     "Title",
+    "Generate Proposal",
     "Manager Review",
     "Proposal Status",
     "Status",
@@ -584,6 +587,20 @@ def get_checkbox_property(page: dict, property_name: str, default: bool = False)
     return default if value is None else bool(value)
 
 
+def get_primary_automation_control_row() -> Optional[dict]:
+    try:
+        database_id = get_automation_control_database_id()
+    except Exception:
+        return None
+
+    row = find_page_by_title(database_id, "Primary Control")
+    if row:
+        return row
+
+    rows = query_database(database_id)
+    return rows[0] if rows else None
+
+
 def get_database_ids(refresh: bool = False) -> dict:
     ids = {}
     state = {} if refresh else load_workspace_state()
@@ -626,6 +643,10 @@ def get_jobs_database_id() -> str:
     if legacy:
         return legacy
     return require_database_id("jobs")
+
+
+def get_automation_control_database_id() -> str:
+    return require_database_id("automation_control")
 
 
 def build_jobs_table_view_configuration(database: dict, visible_order: Optional[list[str]] = None) -> dict:
@@ -900,6 +921,18 @@ SCRAPER_SETTINGS_TABLE_HIDDEN_PROPERTIES = {
     "Setting Key",
 }
 
+AUTOMATION_CONTROL_VISIBLE_ORDER = [
+    "Control",
+    "Run Scraper Now",
+    "Refresh Workspace Now",
+    "Last Result",
+    "Last Action",
+    "Last Completed At",
+    "Last Scraper Run At",
+    "Last Workspace Refresh At",
+    "Last Message",
+]
+
 
 def build_scraper_settings_table_view_configuration(database: dict) -> dict:
     properties = database.get("properties", {})
@@ -955,6 +988,55 @@ def configure_scraper_settings_table_view(database_id: str):
     update_view(table_views[0]["id"], payload)
 
 
+def build_automation_control_table_view_configuration(database: dict) -> dict:
+    properties = database.get("properties", {})
+    ordered_names = []
+    seen = set()
+
+    for name in AUTOMATION_CONTROL_VISIBLE_ORDER:
+        if name in properties:
+            ordered_names.append(name)
+            seen.add(name)
+
+    for name in properties.keys():
+        if name not in seen:
+            ordered_names.append(name)
+
+    property_config = []
+    for name in ordered_names:
+        property_config.append(
+            {
+                "property_id": name,
+                "visible": name in AUTOMATION_CONTROL_VISIBLE_ORDER,
+            }
+        )
+
+    return {
+        "type": "table",
+        "properties": property_config,
+    }
+
+
+def configure_automation_control_table_view(database_id: str):
+    database = get_database(database_id)
+    views = list_database_views(database_id)
+
+    if not views:
+        return
+
+    detailed_views = [retrieve_view(view_ref["id"]) for view_ref in views]
+    table_views = [view for view in detailed_views if view.get("type") == "table"]
+    if not table_views:
+        return
+
+    payload = {
+        "name": "Control Panel",
+        "configuration": build_automation_control_table_view_configuration(database),
+    }
+
+    update_view(table_views[0]["id"], payload)
+
+
 def extract_plain_text_from_block(block: dict) -> str:
     block_type = block.get("type", "")
     block_data = block.get(block_type, {})
@@ -987,6 +1069,7 @@ def get_template_body(page_id: str) -> str:
 def build_jobs_schema() -> dict:
     return {
         "Title": {"title": {}},
+        "Generate Proposal": {"checkbox": {}},
         "Status": {
             "status": {
                 "options": [
@@ -1107,6 +1190,29 @@ def build_search_queries_schema() -> dict:
     }
 
 
+def build_automation_control_schema() -> dict:
+    return {
+        "Control": {"title": {}},
+        "Run Scraper Now": {"checkbox": {}},
+        "Refresh Workspace Now": {"checkbox": {}},
+        "Last Action": {"rich_text": {}},
+        "Last Result": {
+            "status": {
+                "options": [
+                    {"name": "Idle", "color": "gray"},
+                    {"name": "Running", "color": "blue"},
+                    {"name": "Success", "color": "green"},
+                    {"name": "Failed", "color": "red"},
+                ]
+            }
+        },
+        "Last Message": {"rich_text": {}},
+        "Last Completed At": {"date": {}},
+        "Last Scraper Run At": {"date": {}},
+        "Last Workspace Refresh At": {"date": {}},
+    }
+
+
 def build_scraper_settings_schema() -> dict:
     return {
         "Setting": {"title": {}},
@@ -1193,6 +1299,24 @@ def get_default_search_rows() -> list[dict]:
             }
         )
     return rows
+
+
+def get_default_automation_control_rows() -> list[dict]:
+    return [
+        {
+            "properties": {
+                "Control": title_property("Primary Control"),
+                "Run Scraper Now": checkbox_property(False),
+                "Refresh Workspace Now": checkbox_property(False),
+                "Last Action": rich_text_property(""),
+                "Last Result": status_property("Idle"),
+                "Last Message": rich_text_property(""),
+                "Last Completed At": date_property(""),
+                "Last Scraper Run At": date_property(""),
+                "Last Workspace Refresh At": date_property(""),
+            }
+        }
+    ]
 
 
 def get_default_settings_rows() -> list[dict]:
