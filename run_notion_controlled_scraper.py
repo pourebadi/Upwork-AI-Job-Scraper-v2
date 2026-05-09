@@ -84,31 +84,35 @@ def main():
     )
 
     try:
-        setup_workspace.main()
+        if should_refresh_workspace:
+            setup_workspace.main()
 
-        finished_at = nw.now_iso()
         updates = {
             "Fetch Status": nw.status_property("Success"),
             "Last Action": nw.rich_text_property(action_label),
             "Last Result": nw.status_property("Success"),
-            "Last Completed At": nw.date_property(finished_at),
             "Last Message": nw.rich_text_property("Done. Jobs list updated."),
         }
 
-        if should_refresh_workspace or should_run_scraper:
+        if should_refresh_workspace:
             updates["Refresh Workspace Now"] = nw.checkbox_property(False)
-            updates["Last Workspace Refresh At"] = nw.date_property(finished_at)
+            updates["Last Workspace Refresh At"] = nw.date_property(nw.now_iso())
 
         if should_run_scraper:
             scraper.apply_workspace_settings()
             scraper.run_scraper()
+            finished_at = nw.now_iso()
             updates["Fetch New Jobs"] = nw.checkbox_property(False)
+            updates["Last Completed At"] = nw.date_property(finished_at)
             updates["Last Fetch At"] = nw.date_property(finished_at)
             updates["Last Scraper Run At"] = nw.date_property(finished_at)
             if run_scraper_now:
                 updates["Run Scraper Now"] = nw.checkbox_property(False)
         elif fetch_new_jobs:
             updates["Fetch New Jobs"] = nw.checkbox_property(False)
+
+        if "Last Completed At" not in updates:
+            updates["Last Completed At"] = nw.date_property(nw.now_iso())
 
         update_control_row(control_row_id, updates)
 
