@@ -65,7 +65,7 @@ JOBS_TABLE_VISIBLE_ORDER = [
 
 JOBS_REVIEW_VISIBLE_ORDER = [
     "Title",
-    "Generate Proposal Now",
+    "Generate Proposal",
     "Manager Review",
     "Proposal Status",
     "Status",
@@ -85,7 +85,7 @@ JOBS_REVIEW_VISIBLE_ORDER = [
 ]
 
 JOBS_TABLE_HIDDEN_PROPERTIES = {
-    "Generate Proposal",
+    "Generate Proposal Now",
     "AI Model",
     "AI Notes",
     "Job ID",
@@ -1617,7 +1617,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             [
                 paragraph_block("1. وارد دیتابیس Jobs می‌شود."),
                 paragraph_block("2. از ویوی 01 Today یا 02 Review شروع می‌کند."),
-                paragraph_block("3. جاب خوب را بررسی می‌کند و اگر مناسب بود روی Generate Proposal Now کلیک می‌کند."),
+                paragraph_block("3. جاب خوب را بررسی می‌کند و اگر مناسب بود تیک Generate Proposal را می‌زند."),
                 paragraph_block("4. اگر نیاز به جاب‌های جدید داشت، در دیتابیس Automation Control روی Run Scraper Link کلیک می‌کند."),
                 paragraph_block("5. خروجی proposal را در همان صفحه جاب و نتایج اجرا را در Run History می‌بیند."),
             ],
@@ -1630,7 +1630,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
                 paragraph_block("مرکز اصلی بررسی جاب‌ها است. هر ردیف یک job از Upwork است."),
                 paragraph_block("مهم‌ترین propertyها:"),
                 paragraph_block("Title: عنوان جاب"),
-                paragraph_block("Generate Proposal Now: لینک اجرای فوری proposal برای همان جاب."),
+                paragraph_block("Generate Proposal: تریگر ساده و مستقیم برای ساخت proposal."),
                 paragraph_block("Manager Review: وضعیت تایید یا رد توسط مدیر"),
                 paragraph_block("Proposal Status: وضعیت ساخت proposal"),
                 paragraph_block("Match Score: امتیاز کیفیت جاب برای اولویت‌بندی"),
@@ -1683,7 +1683,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
         toggle_block(
             "Propertyهای تصمیم‌گیری روزانه",
             [
-                paragraph_block("Generate Proposal Now: با یک کلیک، همان جاب مستقیم برای proposal ارسال می‌شود."),
+                paragraph_block("Generate Proposal: اگر تیک بخورد، سیستم همین جاب را برای ساخت proposal برمی‌دارد."),
                 paragraph_block("Manager Review: New یعنی هنوز بررسی نشده، Approved یعنی تایید شده، Rejected یعنی رد شده."),
                 paragraph_block("Proposal Status: Not Requested, Requested, Generating, Ready, Failed."),
                 paragraph_block("Status: وضعیت کلی داخلی مثل Draft, Applied, Rejected, Skipped."),
@@ -1749,7 +1749,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             "ساخت proposal برای یک جاب",
             [
                 paragraph_block("1. جاب را در Jobs باز کن یا در همان جدول پیدا کن."),
-                paragraph_block("2. روی Generate Proposal Now کلیک کن."),
+                paragraph_block("2. تیک Generate Proposal را فعال کن."),
                 paragraph_block("3. سیستم خودش Manager Review و Proposal Status را مدیریت می‌کند."),
                 paragraph_block("4. خروجی در همان صفحه زیر AI Proposal می‌آید."),
             ],

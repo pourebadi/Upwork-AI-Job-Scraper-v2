@@ -345,7 +345,7 @@ When `setup_notion_workspace.py` runs, it also creates or refreshes a Persian kn
 ```text
 1. Open Jobs in Notion.
 2. Review a job in the list or open its page.
-3. Click Generate Proposal Now on that row.
+3. Tick Generate Proposal on that row.
 4. Wait for Proposal Status to move to Generating and then Ready.
 5. Read the generated proposal inside the same job page.
 6. If today's list needs a refresh, open Automation Control and click Run Scraper Link.
@@ -356,7 +356,7 @@ When `setup_notion_workspace.py` runs, it also creates or refreshes a Persian kn
 `Jobs` database:
 
 ```text
-Generate Proposal Now (direct link)
+Generate Proposal (checkbox)
 ```
 
 `Automation Control` database:
@@ -380,9 +380,10 @@ Last Message
 Proposal generation:
 
 ```text
-Manager clicks Generate Proposal Now
-→ webhook_server.py dispatches proposal-worker.yml immediately for that page
-→ generate_requested_proposals.py auto-approves the job and sets Proposal Status to Generating
+Manager ticks Generate Proposal
+→ proposal-worker.yml checks Notion every 5 minutes
+→ generate_requested_proposals.py picks up checked jobs
+→ it auto-approves the job and sets Proposal Status to Generating
 → proposal text is written back into the same page
 → Proposal Status becomes Ready
 ```
@@ -406,7 +407,7 @@ If you want actions to start immediately instead of waiting for the 15-minute po
 /notion/refresh-workspace
 ```
 
-Those links/buttons are the recommended immediate flow.
+This checkbox flow is the recommended daily flow because it works directly inside the Notion table without needing a separate visible link field.
 
 ---
 
@@ -472,12 +473,12 @@ Daily operating flow:
 1. Start in 01 Today.
 2. Review from highest Match Score downward.
 3. Set Manager Review to Approved, Rejected, or leave New for later.
-4. Click Generate Proposal Now for approved jobs.
+4. Tick Generate Proposal for approved jobs.
 5. Submit ready proposals from 05 Ready.
 6. Use 02 Review when today's queue is clear.
 ```
 
-The active review views show decision columns such as `Generate Proposal Now`, `Manager Review`, `Proposal Status`, and `Status`. Long/internal fields such as `Job Summary`, `AI Notes`, and `Proposal Preview` stay hidden from table views.
+The active review views show decision columns such as `Generate Proposal`, `Manager Review`, `Proposal Status`, and `Status`. Long/internal fields such as `Job Summary`, `AI Notes`, and `Proposal Preview` stay hidden from table views.
 
 Recommended statuses:
 
