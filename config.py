@@ -19,27 +19,45 @@ _BASE = {
 }
 
 SEARCH_CONFIGS = [
-    # Branding: identities, logo systems, guidelines, motion, illustration.
+    # Branding: identity systems, logos, brand books, motion, illustration.
     {**_BASE, "query": "brand identity design", "service_line": "Branding"},
-    {**_BASE, "query": "branding design", "service_line": "Branding"},
     {**_BASE, "query": "logo and brand identity", "service_line": "Branding"},
     {**_BASE, "query": "visual identity design", "service_line": "Branding"},
     {**_BASE, "query": "brand guidelines design", "service_line": "Branding"},
-    {**_BASE, "query": "rebrand design", "service_line": "Branding"},
+    {**_BASE, "query": "brand style guide", "service_line": "Branding"},
+    {**_BASE, "query": "brand book design", "service_line": "Branding"},
     {**_BASE, "query": "brand system design", "service_line": "Branding"},
+    {**_BASE, "query": "startup branding", "service_line": "Branding"},
+    {**_BASE, "query": "rebrand design", "service_line": "Branding"},
+    {**_BASE, "query": "brand refresh design", "service_line": "Branding"},
+    {**_BASE, "query": "brand strategy design", "service_line": "Branding"},
+    {**_BASE, "query": "packaging brand identity", "service_line": "Branding"},
+    {**_BASE, "query": "social media brand kit", "service_line": "Branding"},
     {**_BASE, "query": "brand illustration design", "service_line": "Branding"},
+    {**_BASE, "query": "motion brand identity", "service_line": "Branding"},
+    {**_BASE, "query": "logo redesign brand identity", "service_line": "Branding"},
 
-    # Product Design: UX insight, UI systems, wireframes, prototypes, SaaS.
+    # Product Design: UX research, wireframes, prototypes, SaaS, apps.
     {**_BASE, "query": "product design", "service_line": "Product Design"},
+    {**_BASE, "query": "product designer figma", "service_line": "Product Design"},
     {**_BASE, "query": "ux ui design", "service_line": "Product Design"},
     {**_BASE, "query": "ui ux designer", "service_line": "Product Design"},
+    {**_BASE, "query": "figma ui design", "service_line": "Product Design"},
     {**_BASE, "query": "ux research design", "service_line": "Product Design"},
+    {**_BASE, "query": "ux audit", "service_line": "Product Design"},
     {**_BASE, "query": "ux wireframe", "service_line": "Product Design"},
+    {**_BASE, "query": "user flow wireframe", "service_line": "Product Design"},
     {**_BASE, "query": "figma prototype", "service_line": "Product Design"},
+    {**_BASE, "query": "ui ux prototype", "service_line": "Product Design"},
+    {**_BASE, "query": "mvp product design", "service_line": "Product Design"},
+    {**_BASE, "query": "startup product design", "service_line": "Product Design"},
     {**_BASE, "query": "saas product design", "service_line": "Product Design"},
+    {**_BASE, "query": "b2b saas product design", "service_line": "Product Design"},
     {**_BASE, "query": "web app product design", "service_line": "Product Design"},
     {**_BASE, "query": "dashboard ux design", "service_line": "Product Design"},
-    {**_BASE, "query": "design system figma", "service_line": "Product Design"},
+    {**_BASE, "query": "mobile app ux ui", "service_line": "Product Design"},
+    {**_BASE, "query": "figma design system", "service_line": "Product Design"},
+    {**_BASE, "query": "product redesign", "service_line": "Product Design"},
 
     # Web Development: Framer, Webflow, WordPress, landing pages, performance.
     {**_BASE, "query": "webflow developer", "service_line": "Web Development"},
