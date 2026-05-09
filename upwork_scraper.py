@@ -1614,8 +1614,8 @@ def add_job_to_notion(job: dict) -> bool:
     source_query = str(job.get("_source_query") or "")
     category = str(get_nested(job, ["category", "name"], ""))
     category_group = str(get_nested(job, ["categoryGroup", "name"], ""))
-    discovered_at = datetime.now(timezone.utc).isoformat()
-    discovered_day = datetime.now(timezone.utc).date().isoformat()
+    discovered_at = nw.now_iso()
+    discovered_day = nw.local_today_iso()
     template_name = "Default Proposal Template"
 
     children = []

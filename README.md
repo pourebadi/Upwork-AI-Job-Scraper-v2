@@ -441,43 +441,40 @@ To reduce Apify usage, lower `Results Per Page`.
 The `Jobs` database is configured as a review inbox, not one endless table. Use these views for daily management:
 
 ```text
-01 Today - New Jobs
+01 Today
 Review only jobs discovered today with Manager Review = New.
 
-02 Yesterday - Unreviewed
-Catch up on yesterday's jobs that were not reviewed.
+02 Review
+All unreviewed jobs. This is the main review backlog.
 
-03 Needs Decision
-All unreviewed jobs across every day. This is the backlog.
-
-04 Last 7 Days
+03 Week
 Weekly review sorted by day and match score.
 
-05 Approved - Need Proposal
+04 Proposal
 Approved jobs that still need proposal generation.
 
-06 Proposal Ready
+05 Ready
 Generated proposals ready to submit on Upwork.
 
-07 Applied
+06 Applied
 Jobs already submitted.
 
-08 Rejected - Skipped
+07 Archive
 Archived decisions that should not pollute active views.
 
-09 All Jobs by Date
+08 All
 Fallback archive sorted by newest discovered day first.
 ```
 
 Daily operating flow:
 
 ```text
-1. Start in 01 Today - New Jobs.
+1. Start in 01 Today.
 2. Review from highest Match Score downward.
 3. Set Manager Review to Approved, Rejected, or leave New for later.
 4. Click Generate Proposal Now for approved jobs.
-5. Submit ready proposals from 06 Proposal Ready.
-6. Use 03 Needs Decision when today's queue is clear.
+5. Submit ready proposals from 05 Ready.
+6. Use 02 Review when today's queue is clear.
 ```
 
 The active review views show decision columns such as `Generate Proposal Now`, `Manager Review`, `Proposal Status`, and `Status`. Long/internal fields such as `Job Summary`, `AI Notes`, and `Proposal Preview` stay hidden from table views.

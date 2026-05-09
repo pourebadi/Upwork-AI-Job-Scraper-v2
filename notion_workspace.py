@@ -2,6 +2,7 @@ import json
 import os
 from datetime import datetime, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import requests
 from dotenv import load_dotenv
@@ -12,6 +13,7 @@ NOTION_API_KEY = os.getenv("NOTION_API_KEY", "")
 NOTION_PARENT_PAGE_ID = os.getenv("NOTION_PARENT_PAGE_ID", "")
 WEBHOOK_PUBLIC_BASE_URL = os.getenv("WEBHOOK_PUBLIC_BASE_URL", "").strip().rstrip("/")
 WEBHOOK_SHARED_SECRET = os.getenv("WEBHOOK_SHARED_SECRET", "").strip()
+NOTION_LOCAL_TIMEZONE = os.getenv("NOTION_LOCAL_TIMEZONE", os.getenv("TZ", "UTC")).strip() or "UTC"
 NOTION_API_URL = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
 NOTION_VIEWS_VERSION = "2026-03-11"
@@ -115,12 +117,27 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def get_local_timezone():
+    try:
+        return ZoneInfo(NOTION_LOCAL_TIMEZONE)
+    except Exception:
+        return timezone.utc
+
+
+def now_local() -> datetime:
+    return now_utc().astimezone(get_local_timezone())
+
+
 def now_iso() -> str:
     return now_utc().isoformat()
 
 
 def today_iso() -> str:
     return now_utc().date().isoformat()
+
+
+def local_today_iso() -> str:
+    return now_local().date().isoformat()
 
 
 def safe_text(value, limit: int = 1900) -> str:
@@ -372,6 +389,16 @@ def notion_views_post(path: str, payload: Optional[dict] = None) -> dict:
     return response.json()
 
 
+def notion_views_delete(path: str) -> dict:
+    response = requests.delete(
+        f"{NOTION_API_URL}{path}",
+        headers=notion_views_headers(),
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def search_databases_by_title(title: str) -> list[dict]:
     results = []
     cursor = None
@@ -486,6 +513,10 @@ def update_view(view_id: str, payload: dict) -> dict:
 
 def create_view(payload: dict) -> dict:
     return notion_views_post("/views", payload)
+
+
+def delete_view(view_id: str) -> dict:
+    return notion_views_delete(f"/views/{view_id}")
 
 
 def patch_database_properties(database_id: str, properties: dict):
@@ -787,7 +818,7 @@ def build_jobs_named_view_specs() -> list[dict]:
 
     return [
         {
-            "name": "01 Today - New Jobs",
+            "name": "01 Today",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
                 "and": [
@@ -798,24 +829,13 @@ def build_jobs_named_view_specs() -> list[dict]:
             "sorts": build_jobs_table_view_sorts(),
         },
         {
-            "name": "02 Yesterday - Unreviewed",
-            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
-            "filter": {
-                "and": [
-                    {"property": "Discovered Day", "date": {"equals": "yesterday"}},
-                    needs_review_filter,
-                ]
-            },
-            "sorts": build_jobs_table_view_sorts(),
-        },
-        {
-            "name": "03 Needs Decision",
+            "name": "02 Review",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": needs_review_filter,
             "sorts": build_jobs_table_view_sorts(),
         },
         {
-            "name": "04 Last 7 Days",
+            "name": "03 Week",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
                 "property": "Discovered Day",
@@ -827,7 +847,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "05 Approved - Need Proposal",
+            "name": "04 Proposal",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
                 "and": [
@@ -838,7 +858,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             "sorts": build_jobs_table_view_sorts(),
         },
         {
-            "name": "06 Proposal Ready",
+            "name": "05 Ready",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
                 "property": "Proposal Status",
@@ -850,7 +870,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "07 Applied",
+            "name": "06 Applied",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
                 "property": "Status",
@@ -862,7 +882,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "08 Rejected - Skipped",
+            "name": "07 Archive",
             "filter": rejected_filter,
             "sorts": [
                 {"property": "Discovered Day", "direction": "descending"},
@@ -870,49 +890,12 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "09 All Jobs by Date",
+            "name": "08 All",
             "filter": None,
             "sorts": [
                 {"property": "Discovered Day", "direction": "descending"},
                 *build_jobs_table_view_sorts(),
             ],
-        },
-        {
-            "name": "Jobs Table",
-            "filter": None,
-            "sorts": [
-                {"property": "Discovered Day", "direction": "descending"},
-                *build_jobs_table_view_sorts(),
-            ],
-        },
-        {
-            # Kept for compatibility with older setups that already created this view.
-            "name": "Today",
-            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
-            "filter": {
-                "and": [
-                    {"property": "Discovered Day", "date": {"equals": "today"}},
-                    needs_review_filter,
-                ]
-            },
-            "sorts": build_jobs_table_view_sorts(),
-        },
-        {
-            # Kept for compatibility with older setups that already created this view.
-            "name": "Approved",
-            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
-            "filter": approved_filter,
-            "sorts": build_jobs_table_view_sorts(),
-        },
-        {
-            # Kept for compatibility with older setups that already created this view.
-            "name": "Proposal Ready",
-            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
-            "filter": {
-                "property": "Proposal Status",
-                "status": {"equals": "Ready"},
-            },
-            "sorts": build_jobs_table_view_sorts(),
         },
     ]
 
@@ -981,6 +964,17 @@ def configure_jobs_table_view(database_id: str):
                 "configuration": configuration,
             }
         )
+
+    remaining_table_views = [
+        view for view in available_table_views
+        if view["id"] not in claimed_view_ids
+    ]
+
+    for view in remaining_table_views:
+        try:
+            delete_view(view["id"])
+        except Exception:
+            continue
 
 
 SCRAPER_SETTINGS_TABLE_VISIBLE_ORDER = [
@@ -1578,6 +1572,29 @@ def sync_jobs_action_links(database_id: str):
         )
 
 
+def sync_jobs_discovered_day(database_id: str):
+    local_timezone = get_local_timezone()
+
+    for page in query_database(database_id):
+        discovered_at = get_plain_text_property(page, "Discovered At")
+        if not discovered_at:
+            continue
+
+        try:
+            discovered_dt = datetime.fromisoformat(discovered_at)
+        except ValueError:
+            continue
+
+        if discovered_dt.tzinfo is None:
+            discovered_dt = discovered_dt.replace(tzinfo=timezone.utc)
+
+        local_day = discovered_dt.astimezone(local_timezone).date().isoformat()
+        current_day = get_plain_text_property(page, "Discovered Day")
+
+        if current_day != local_day:
+            update_page(page["id"], {"Discovered Day": date_property(local_day)})
+
+
 def build_persian_knowledge_base_blocks() -> list[dict]:
     blocks = [
         callout_block(
@@ -1599,7 +1616,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             "جریان روزانه مدیر دیجیتال مارکتینگ",
             [
                 paragraph_block("1. وارد دیتابیس Jobs می‌شود."),
-                paragraph_block("2. از ویوی 01 Today - New Jobs یا 03 Needs Decision شروع می‌کند."),
+                paragraph_block("2. از ویوی 01 Today یا 02 Review شروع می‌کند."),
                 paragraph_block("3. جاب خوب را بررسی می‌کند و اگر مناسب بود روی Generate Proposal Now کلیک می‌کند."),
                 paragraph_block("4. اگر نیاز به جاب‌های جدید داشت، در دیتابیس Automation Control روی Run Scraper Link کلیک می‌کند."),
                 paragraph_block("5. خروجی proposal را در همان صفحه جاب و نتایج اجرا را در Run History می‌بیند."),
@@ -1702,20 +1719,19 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
         toggle_block(
             "Review Inbox",
             [
-                paragraph_block("01 Today - New Jobs: جاب‌های امروز که هنوز بررسی نشده‌اند."),
-                paragraph_block("02 Yesterday - Unreviewed: جاب‌های دیروز که هنوز backlog مانده‌اند."),
-                paragraph_block("03 Needs Decision: همه جاب‌های تصمیم‌نگرفته."),
-                paragraph_block("04 Last 7 Days: مرور هفتگی برای عقب‌افتادگی‌ها."),
+                paragraph_block("01 Today: جاب‌های امروز که هنوز بررسی نشده‌اند."),
+                paragraph_block("02 Review: همه جاب‌های تصمیم‌نگرفته."),
+                paragraph_block("03 Week: مرور هفتگی برای عقب‌افتادگی‌ها."),
             ],
         ),
         toggle_block(
             "Proposal و آرشیو",
             [
-                paragraph_block("05 Approved - Need Proposal: جاب‌های تاییدشده که هنوز proposal نگرفته‌اند."),
-                paragraph_block("06 Proposal Ready: proposal ساخته شده و آماده استفاده است."),
-                paragraph_block("07 Applied: جاب‌هایی که اقدام نهایی روی آن‌ها انجام شده است."),
-                paragraph_block("08 Rejected - Skipped: موارد آرشیوی که نباید جدول اصلی را شلوغ کنند."),
-                paragraph_block("09 All Jobs by Date: آرشیو کامل به ترتیب روز."),
+                paragraph_block("04 Proposal: جاب‌های تاییدشده که هنوز proposal نگرفته‌اند."),
+                paragraph_block("05 Ready: proposal ساخته شده و آماده استفاده است."),
+                paragraph_block("06 Applied: جاب‌هایی که اقدام نهایی روی آن‌ها انجام شده است."),
+                paragraph_block("07 Archive: موارد آرشیوی که نباید جدول اصلی را شلوغ کنند."),
+                paragraph_block("08 All: آرشیو کامل به ترتیب روز."),
             ],
         ),
         divider_block(),

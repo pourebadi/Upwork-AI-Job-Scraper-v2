@@ -28,6 +28,7 @@ from notion_workspace import (
     sync_automation_control_row,
     sync_default_settings_rows,
     sync_jobs_action_links,
+    sync_jobs_discovered_day,
 )
 
 
@@ -96,6 +97,7 @@ def main():
 
         sync_automation_control_row(ids["automation_control"])
         sync_jobs_action_links(ids["jobs"])
+        sync_jobs_discovered_day(ids["jobs"])
         ensure_seed_rows(ids["search_queries"], get_default_search_rows(), "Query")
         sync_default_settings_rows(ids["scraper_settings"])
         ensure_seed_rows(ids["prompt_templates"], get_default_prompt_templates(), "Template Name")
