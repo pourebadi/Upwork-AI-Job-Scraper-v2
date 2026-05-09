@@ -46,6 +46,7 @@ _PROMPT_TEMPLATE_BODY_CACHE = {}
 JOBS_TABLE_VISIBLE_ORDER = [
     "Title",
     "Match Score",
+    "Service Line",
     "Published At",
     "Source Query",
     "Payment Status",
@@ -70,6 +71,7 @@ JOBS_REVIEW_VISIBLE_ORDER = [
     "Proposal Status",
     "Status",
     "Match Score",
+    "Service Line",
     "Discovered Day",
     "Published At",
     "Source Query",
@@ -841,6 +843,18 @@ def build_jobs_named_view_specs() -> list[dict]:
         "property": "Proposal Status",
         "status": {"equals": "Not Requested"},
     }
+    branding_filter = {
+        "property": "Service Line",
+        "select": {"equals": "Branding"},
+    }
+    product_design_filter = {
+        "property": "Service Line",
+        "select": {"equals": "Product Design"},
+    }
+    web_development_filter = {
+        "property": "Service Line",
+        "select": {"equals": "Web Development"},
+    }
     today_review_filter = {
         "and": [
             {"property": "Discovered Day", "date": {"equals": "today"}},
@@ -890,7 +904,49 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "04 Review",
+            "name": "04 Branding",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": {
+                "and": [
+                    branding_filter,
+                    needs_review_filter,
+                ]
+            },
+            "sorts": [
+                {"property": "Discovered Day", "direction": "descending"},
+                *build_jobs_table_view_sorts(),
+            ],
+        },
+        {
+            "name": "05 Product",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": {
+                "and": [
+                    product_design_filter,
+                    needs_review_filter,
+                ]
+            },
+            "sorts": [
+                {"property": "Discovered Day", "direction": "descending"},
+                *build_jobs_table_view_sorts(),
+            ],
+        },
+        {
+            "name": "06 Web Dev",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": {
+                "and": [
+                    web_development_filter,
+                    needs_review_filter,
+                ]
+            },
+            "sorts": [
+                {"property": "Discovered Day", "direction": "descending"},
+                *build_jobs_table_view_sorts(),
+            ],
+        },
+        {
+            "name": "07 Review",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": needs_review_filter,
             "sorts": [
@@ -899,7 +955,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "05 Week",
+            "name": "08 Week",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": week_review_filter,
             "sorts": [
@@ -908,7 +964,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "06 Proposal",
+            "name": "09 Proposal",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
                 "and": [
@@ -919,7 +975,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             "sorts": build_jobs_table_view_sorts(),
         },
         {
-            "name": "07 Ready",
+            "name": "10 Ready",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
                 "property": "Proposal Status",
@@ -931,7 +987,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "08 Applied",
+            "name": "11 Applied",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
                 "property": "Status",
@@ -943,7 +999,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "09 Archive",
+            "name": "12 Archive",
             "filter": rejected_filter,
             "sorts": [
                 {"property": "Discovered Day", "direction": "descending"},
@@ -951,7 +1007,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "10 All",
+            "name": "13 All",
             "filter": None,
             "sorts": [
                 {"property": "Discovered Day", "direction": "descending"},
@@ -1235,6 +1291,16 @@ def build_jobs_schema() -> dict:
         "Proposal Requested At": {"date": {}},
         "Proposal Generated At": {"date": {}},
         "Source Query": {"rich_text": {}},
+        "Service Line": {
+            "select": {
+                "options": [
+                    {"name": "Branding", "color": "pink"},
+                    {"name": "Product Design", "color": "blue"},
+                    {"name": "Web Development", "color": "green"},
+                    {"name": "Other", "color": "gray"},
+                ]
+            }
+        },
         "Job Type": {
             "select": {
                 "options": [
@@ -1291,7 +1357,15 @@ def build_search_queries_schema() -> dict:
         "Min Budget": {"number": {"format": "number"}},
         "Max Budget": {"number": {"format": "number"}},
         "Max Age Days": {"number": {"format": "number"}},
-        "Category": {"select": {"options": []}},
+        "Category": {
+            "select": {
+                "options": [
+                    {"name": "Branding", "color": "pink"},
+                    {"name": "Product Design", "color": "blue"},
+                    {"name": "Web Development", "color": "green"},
+                ]
+            }
+        },
         "Job Type": {
             "select": {
                 "options": [
@@ -1448,6 +1522,7 @@ def get_default_search_rows() -> list[dict]:
     rows = []
     for item in SEARCH_CONFIGS:
         query = item.get("query", "")
+        service_line = item.get("service_line", item.get("category", "Product Design"))
         rows.append(
             {
                 "properties": {
@@ -1457,15 +1532,54 @@ def get_default_search_rows() -> list[dict]:
                     "Min Budget": number_property(item.get("fixed_budget_min")),
                     "Max Budget": number_property(item.get("fixed_budget_max")),
                     "Max Age Days": number_property((item.get("max_job_age") or {}).get("value", 14)),
-                    "Category": select_property("Primary"),
+                    "Category": select_property(service_line),
                     "Job Type": select_property("Any"),
                     "Experience Level": select_property("Any"),
                     "Locations": rich_text_property(""),
-                    "Notes": rich_text_property("Seeded from config.py"),
+                    "Notes": rich_text_property(f"Seeded from config.py for {service_line}"),
                 }
             }
         )
     return rows
+
+
+def sync_default_search_rows(database_id: str):
+    rows = get_default_search_rows()
+    defaults_by_title = {}
+
+    for row in rows:
+        title = "".join(
+            item.get("plain_text")
+            or item.get("text", {}).get("content", "")
+            for item in row["properties"]["Query"].get("title", [])
+        ).strip()
+        if title:
+            defaults_by_title[title] = row
+
+    existing_pages = query_database(database_id)
+    existing_by_title = {get_page_title(page): page for page in existing_pages}
+
+    for title, row in defaults_by_title.items():
+        existing = existing_by_title.get(title)
+        if not existing:
+            create_page(database_id, row["properties"], row.get("children"))
+            continue
+
+        properties = dict(row["properties"])
+        properties.pop("Query", None)
+        if "Enabled" in existing.get("properties", {}):
+            properties["Enabled"] = checkbox_property(get_checkbox_property(existing, "Enabled", True))
+        update_page(existing["id"], properties)
+
+    for title, page in existing_by_title.items():
+        if title not in defaults_by_title:
+            update_page(
+                page["id"],
+                {
+                    "Enabled": checkbox_property(False),
+                    "Notes": rich_text_property("Disabled because it is no longer part of the Heli Studio search config."),
+                },
+            )
 
 
 def get_default_automation_control_rows() -> list[dict]:
@@ -1667,6 +1781,55 @@ def sync_jobs_discovered_day(database_id: str):
             update_page(page["id"], {"Discovered Day": date_property(local_day)})
 
 
+def classify_service_line_from_page(page: dict) -> str:
+    text = " ".join(
+        [
+            get_page_title(page),
+            get_plain_text_property(page, "Source Query"),
+            get_plain_text_property(page, "Skills"),
+            get_plain_text_property(page, "Category"),
+            get_plain_text_property(page, "Category Group"),
+        ]
+    ).lower()
+
+    service_keywords = {
+        "Branding": [
+            "brand identity", "branding", "brand design", "logo design",
+            "visual identity", "brand guidelines", "rebrand", "brand system",
+            "illustration", "motion identity",
+        ],
+        "Web Development": [
+            "webflow", "framer", "wordpress", "web development", "website redesign",
+            "figma to webflow", "figma to framer", "cms", "landing page",
+            "responsive website", "homepage",
+        ],
+        "Product Design": [
+            "product design", "ui/ux", "ux design", "ui design", "ux research",
+            "wireframe", "prototype", "figma", "design system", "dashboard",
+            "web app", "saas", "mobile app",
+        ],
+    }
+
+    scores = {
+        service_line: sum(1 for keyword in keywords if keyword in text)
+        for service_line, keywords in service_keywords.items()
+    }
+    best_service_line, best_score = max(scores.items(), key=lambda item: item[1])
+    return best_service_line if best_score > 0 else "Other"
+
+
+def sync_jobs_service_line(database_id: str):
+    for page in query_database(database_id):
+        current_service_line = get_plain_text_property(page, "Service Line")
+        if current_service_line:
+            continue
+
+        update_page(
+            page["id"],
+            {"Service Line": select_property(classify_service_line_from_page(page))},
+        )
+
+
 def build_persian_knowledge_base_blocks() -> list[dict]:
     blocks = [
         callout_block(
@@ -1705,6 +1868,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
                 paragraph_block("Generate Proposal: تریگر ساده و مستقیم برای ساخت proposal."),
                 paragraph_block("Manager Review: وضعیت تایید یا رد توسط مدیر"),
                 paragraph_block("Proposal Status: وضعیت ساخت proposal"),
+                paragraph_block("Service Line: یکی از سه خط کاری Heli Studio؛ Branding، Product Design یا Web Development."),
                 paragraph_block("Match Score: امتیاز کیفیت جاب برای اولویت‌بندی"),
                 paragraph_block("Published At / Discovered Day: زمان انتشار و زمان کشف جاب"),
                 paragraph_block("Budget / Job Type / Proposals / Gig Link: اطلاعات اصلی برای تصمیم‌گیری سریع"),
@@ -1725,6 +1889,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             [
                 paragraph_block("تنظیم می‌کند scraper دقیقاً چه نوع جاب‌هایی را بگردد."),
                 paragraph_block("هر ردیف یک query است. با Enabled می‌شود query را روشن یا خاموش کرد."),
+                paragraph_block("Category مشخص می‌کند query مربوط به Branding، Product Design یا Web Development است."),
                 paragraph_block("Results Per Page, Min Budget, Max Budget و Max Age Days رفتار جست‌وجو را کنترل می‌کنند."),
             ],
         ),
@@ -1759,6 +1924,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
                 paragraph_block("Manager Review: New یعنی هنوز بررسی نشده، Approved یعنی تایید شده، Rejected یعنی رد شده."),
                 paragraph_block("Proposal Status: Not Requested, Requested, Generating, Ready, Failed."),
                 paragraph_block("Status: وضعیت کلی داخلی مثل Draft, Applied, Rejected, Skipped."),
+                paragraph_block("Service Line: برای فیلتر سریع بین Branding، Product Design و Web Development."),
                 paragraph_block("Match Score: هر چه بالاتر باشد، احتمال مناسب بودن جاب بیشتر است."),
             ],
         ),
@@ -1794,18 +1960,21 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
                 paragraph_block("01 Today: جاب‌های امروز که هنوز بررسی نشده‌اند."),
                 paragraph_block("02 Yesterday: جاب‌های دیروز که هنوز بررسی نشده‌اند."),
                 paragraph_block("03 Older: جاب‌های قبل از دیروز در هفته اخیر."),
-                paragraph_block("04 Review: همه جاب‌های تصمیم‌نگرفته به عنوان backlog کامل."),
-                paragraph_block("05 Week: مرور هفتگی تصمیم‌نگرفته‌ها بر اساس روز و امتیاز."),
+                paragraph_block("04 Branding: جاب‌های برندینگ، لوگو، هویت بصری و brand system."),
+                paragraph_block("05 Product: جاب‌های product design، UX/UI، wireframe، prototype و UX research."),
+                paragraph_block("06 Web Dev: جاب‌های Webflow، Framer، WordPress، website و landing page."),
+                paragraph_block("07 Review: همه جاب‌های تصمیم‌نگرفته به عنوان backlog کامل."),
+                paragraph_block("08 Week: مرور هفتگی تصمیم‌نگرفته‌ها بر اساس روز و امتیاز."),
             ],
         ),
         toggle_block(
             "Proposal و آرشیو",
             [
-                paragraph_block("06 Proposal: جاب‌های تاییدشده که هنوز proposal نگرفته‌اند."),
-                paragraph_block("07 Ready: proposal ساخته شده و آماده استفاده است."),
-                paragraph_block("08 Applied: جاب‌هایی که اقدام نهایی روی آن‌ها انجام شده است."),
-                paragraph_block("09 Archive: موارد آرشیوی که نباید جدول اصلی را شلوغ کنند."),
-                paragraph_block("10 All: آرشیو کامل به ترتیب روز."),
+                paragraph_block("09 Proposal: جاب‌های تاییدشده که هنوز proposal نگرفته‌اند."),
+                paragraph_block("10 Ready: proposal ساخته شده و آماده استفاده است."),
+                paragraph_block("11 Applied: جاب‌هایی که اقدام نهایی روی آن‌ها انجام شده است."),
+                paragraph_block("12 Archive: موارد آرشیوی که نباید جدول اصلی را شلوغ کنند."),
+                paragraph_block("13 All: آرشیو کامل به ترتیب روز."),
             ],
         ),
         divider_block(),
@@ -1982,9 +2151,11 @@ def load_search_queries(refresh: bool = False) -> list[dict]:
         locations = [item.strip() for item in locations_text.split(",") if item.strip()]
         job_type = get_plain_text_property(row, "Job Type")
         experience_level = get_plain_text_property(row, "Experience Level")
+        service_line = get_plain_text_property(row, "Category")
 
         config = {
             "query": query,
+            "service_line": service_line or "Product Design",
             "results_per_page": int(get_number_property(row, "Results Per Page", 5) or 5),
             "fixed_budget_min": get_number_property(row, "Min Budget"),
             "fixed_budget_max": get_number_property(row, "Max Budget"),

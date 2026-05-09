@@ -1016,10 +1016,13 @@ REQUIRED_KEYWORDS = [
     "landing page", "homepage design",
     "figma", "webflow", "framer",
     "prototype", "prototyping", "wireframe", "wireframing",
+    "ux wireframe", "ui/ux prototyping",
     "mvp", "minimum viable product",
     "design system", "dashboard design", "saas design", "saas",
-    "brand identity", "branding",
-    "presentation", "pitch deck", "graphic design", "marketing design"
+    "brand identity", "brand design", "branding", "logo design", "visual identity",
+    "ux research", "brand guidelines",
+    "presentation", "pitch deck", "graphic design", "marketing design",
+    "wordpress", "framer website", "webflow cms"
 ]
 
 HIGH_VALUE_KEYWORDS = [
@@ -1033,12 +1036,18 @@ HIGH_VALUE_KEYWORDS = [
     "dashboard",
     "landing page",
     "website redesign",
+    "web development",
+    "wordpress",
     "mvp",
     "prototype",
+    "ux research",
+    "wireframe",
     "design system",
+    "brand design",
     "pitch deck",
     "presentation",
-    "brand identity"
+    "brand identity",
+    "branding"
 ]
 
 NEGATIVE_KEYWORDS = [
@@ -1068,6 +1077,39 @@ def searchable_text(job: dict) -> str:
     return f"{title} {description} {skills_text} {category} {category_group} {source_query}"
 
 
+def classify_service_line(job: dict) -> str:
+    explicit = str(job.get("_service_line") or "").strip()
+    if explicit in {"Branding", "Product Design", "Web Development"}:
+        return explicit
+
+    text = searchable_text(job)
+
+    service_keywords = {
+        "Branding": [
+            "brand identity", "branding", "brand design", "logo design",
+            "visual identity", "brand guidelines", "rebrand", "brand system",
+            "illustration", "motion identity",
+        ],
+        "Web Development": [
+            "webflow", "framer", "wordpress", "web development", "website redesign",
+            "figma to webflow", "figma to framer", "cms", "landing page",
+            "responsive website", "homepage",
+        ],
+        "Product Design": [
+            "product design", "ui/ux", "ux design", "ui design", "ux research",
+            "wireframe", "prototype", "figma", "design system", "dashboard",
+            "web app", "saas", "mobile app",
+        ],
+    }
+
+    scores = {
+        service_line: sum(1 for keyword in keywords if keyword in text)
+        for service_line, keywords in service_keywords.items()
+    }
+    best_service_line, best_score = max(scores.items(), key=lambda item: item[1])
+    return best_service_line if best_score > 0 else "Other"
+
+
 def job_matches_keywords(job: dict) -> bool:
     text = searchable_text(job)
 
@@ -1085,6 +1127,9 @@ def calculate_match_score(job: dict) -> int:
     for keyword in HIGH_VALUE_KEYWORDS:
         if keyword in text:
             score += 8
+
+    if classify_service_line(job) != "Other":
+        score += 10
 
     if get_payment_verified(job):
         score += 10
@@ -1614,6 +1659,7 @@ def add_job_to_notion(job: dict) -> bool:
     source_query = str(job.get("_source_query") or "")
     category = str(get_nested(job, ["category", "name"], ""))
     category_group = str(get_nested(job, ["categoryGroup", "name"], ""))
+    service_line = classify_service_line(job)
     discovered_at = nw.now_iso()
     discovered_day = nw.local_today_iso()
     template_name = "Default Proposal Template"
@@ -1640,6 +1686,7 @@ def add_job_to_notion(job: dict) -> bool:
 
     snapshot_lines = [
         f"Match Score: {match_score}",
+        f"Service Line: {service_line}",
         f"Source Query: {source_query}",
         f"Job Type: {job_type}",
         f"Budget: {budget_display or 'Unknown'}",
@@ -1699,6 +1746,7 @@ def add_job_to_notion(job: dict) -> bool:
     add_property_if_exists(properties, "Discovered At", date_property(discovered_at))
     add_property_if_exists(properties, "Discovered Day", date_property(discovered_day))
     add_property_if_exists(properties, "Source Query", rich_text_property(source_query))
+    add_property_if_exists(properties, "Service Line", select_property(service_line))
     add_property_if_exists(properties, "Job Type", select_property(job_type))
     add_property_if_exists(properties, "Budget", rich_text_property(budget_display))
     add_property_if_exists(properties, "Hourly Rate", rich_text_property(hourly_rate))
@@ -1854,6 +1902,7 @@ def run_scraper():
 
             for job in items:
                 job["_source_query"] = source_query
+                job["_service_line"] = config.get("service_line", "")
 
                 job_id = get_job_id(job)
                 url = normalize_job_url(job)

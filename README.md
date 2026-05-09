@@ -470,25 +470,34 @@ Review only yesterday's unreviewed jobs.
 03 Older
 Unreviewed jobs from before yesterday, limited to the recent week.
 
-04 Review
+04 Branding
+Unreviewed branding, logo, visual identity, and brand-system jobs.
+
+05 Product
+Unreviewed product design, UI/UX, research, wireframe, and prototype jobs.
+
+06 Web Dev
+Unreviewed Webflow, Framer, WordPress, website, and landing-page jobs.
+
+07 Review
 All unreviewed jobs. Use this only as the full backlog.
 
-05 Week
+08 Week
 Weekly unreviewed review sorted by day and match score.
 
-06 Proposal
+09 Proposal
 Approved jobs that still need proposal generation.
 
-07 Ready
+10 Ready
 Generated proposals ready to submit on Upwork.
 
-08 Applied
+11 Applied
 Jobs already submitted.
 
-09 Archive
+12 Archive
 Archived decisions that should not pollute active views.
 
-10 All
+13 All
 Fallback archive sorted by newest discovered day first.
 ```
 
@@ -497,13 +506,14 @@ Daily operating flow:
 ```text
 1. Start in 01 Today.
 2. Move to 02 Yesterday, then 03 Older if today's queue is clear.
-3. Review from highest Match Score downward.
-4. Set Manager Review to Approved, Rejected, or leave New for later.
-5. Tick Generate Proposal for approved jobs.
-6. Submit ready proposals from 07 Ready.
+3. Use 04 Branding, 05 Product, and 06 Web Dev when reviewing by service line.
+4. Review from highest Match Score downward.
+5. Set Manager Review to Approved, Rejected, or leave New for later.
+6. Tick Generate Proposal for approved jobs.
+7. Submit ready proposals from 10 Ready.
 ```
 
-The active review views show decision columns such as `Generate Proposal`, `Manager Review`, `Proposal Status`, and `Status`. Long/internal fields such as `Job Summary`, `AI Notes`, and `Proposal Preview` stay hidden from table views.
+The active review views show decision columns such as `Generate Proposal`, `Manager Review`, `Proposal Status`, `Status`, and `Service Line`. Long/internal fields such as `Job Summary`, `AI Notes`, and `Proposal Preview` stay hidden from table views.
 
 Recommended statuses:
 

@@ -3,57 +3,53 @@ Search Configuration for Apify Upwork Scraper
 =============================================
 
 Production setup:
-- Focused on Product Design, UI/UX, Figma, Webflow, Framer, SaaS, Landing Pages
-- Multiple focused searches to reduce missed opportunities
+- Focused on Heli Studio's three service lines:
+  Branding, Product Design, and Web Development
+- Multiple focused searches to catch high-intent jobs without turning the inbox
+  into a generic design feed
 - Python post-filter inside upwork_scraper.py handles real filtering, freshness, scoring, and deduplication
 """
 
 _BASE = {
-    "results_per_page": 5,
-    "fixed_budget_min": 1000,
+    "results_per_page": 8,
+    "fixed_budget_min": 500,
     "fixed_budget_max": 100000,
     "payment_verified": True,
-    "max_job_age": {"value": 14, "unit": "days"},
+    "max_job_age": {"value": 10, "unit": "days"},
 }
 
 SEARCH_CONFIGS = [
-    # Core UI/UX and Product Design
-    {**_BASE, "query": "ui ux design"},
-    {**_BASE, "query": "ux design"},
-    {**_BASE, "query": "product design"},
-    {**_BASE, "query": "product designer"},
+    # Branding: identities, logo systems, guidelines, motion, illustration.
+    {**_BASE, "query": "brand identity design", "service_line": "Branding"},
+    {**_BASE, "query": "branding design", "service_line": "Branding"},
+    {**_BASE, "query": "logo and brand identity", "service_line": "Branding"},
+    {**_BASE, "query": "visual identity design", "service_line": "Branding"},
+    {**_BASE, "query": "brand guidelines design", "service_line": "Branding"},
+    {**_BASE, "query": "rebrand design", "service_line": "Branding"},
+    {**_BASE, "query": "brand system design", "service_line": "Branding"},
+    {**_BASE, "query": "brand illustration design", "service_line": "Branding"},
 
-    # Figma-heavy work
-    {**_BASE, "query": "figma"},
-    {**_BASE, "query": "figma design"},
-    {**_BASE, "query": "figma prototype"},
+    # Product Design: UX insight, UI systems, wireframes, prototypes, SaaS.
+    {**_BASE, "query": "product design", "service_line": "Product Design"},
+    {**_BASE, "query": "ux ui design", "service_line": "Product Design"},
+    {**_BASE, "query": "ui ux designer", "service_line": "Product Design"},
+    {**_BASE, "query": "ux research design", "service_line": "Product Design"},
+    {**_BASE, "query": "ux wireframe", "service_line": "Product Design"},
+    {**_BASE, "query": "figma prototype", "service_line": "Product Design"},
+    {**_BASE, "query": "saas product design", "service_line": "Product Design"},
+    {**_BASE, "query": "web app product design", "service_line": "Product Design"},
+    {**_BASE, "query": "dashboard ux design", "service_line": "Product Design"},
+    {**_BASE, "query": "design system figma", "service_line": "Product Design"},
 
-    # Webflow / Framer
-    {**_BASE, "query": "webflow"},
-    {**_BASE, "query": "framer"},
-    {**_BASE, "query": "figma webflow"},
-    {**_BASE, "query": "figma to webflow"},
-    {**_BASE, "query": "figma to framer"},
-
-    # Website / landing page
-    {**_BASE, "query": "website design"},
-    {**_BASE, "query": "website redesign"},
-    {**_BASE, "query": "landing page design"},
-    {**_BASE, "query": "homepage design"},
-
-    # SaaS / dashboard / web app
-    {**_BASE, "query": "saas design"},
-    {**_BASE, "query": "saas dashboard design"},
-    {**_BASE, "query": "dashboard design"},
-    {**_BASE, "query": "web app design"},
-
-    # MVP / startup / prototyping
-    {**_BASE, "query": "mvp design"},
-    {**_BASE, "query": "startup product design"},
-    {**_BASE, "query": "prototype design"},
-    {**_BASE, "query": "wireframe design"},
-
-    # Brand + web overlap
-    {**_BASE, "query": "brand identity design"},
-    {**_BASE, "query": "branding website design"},
+    # Web Development: Framer, Webflow, WordPress, landing pages, performance.
+    {**_BASE, "query": "webflow developer", "service_line": "Web Development"},
+    {**_BASE, "query": "framer website", "service_line": "Web Development"},
+    {**_BASE, "query": "wordpress website design", "service_line": "Web Development"},
+    {**_BASE, "query": "website redesign", "service_line": "Web Development"},
+    {**_BASE, "query": "landing page design", "service_line": "Web Development"},
+    {**_BASE, "query": "figma to webflow", "service_line": "Web Development"},
+    {**_BASE, "query": "figma to framer", "service_line": "Web Development"},
+    {**_BASE, "query": "responsive website design", "service_line": "Web Development"},
+    {**_BASE, "query": "saas website design", "service_line": "Web Development"},
+    {**_BASE, "query": "webflow cms website", "service_line": "Web Development"},
 ]

@@ -22,13 +22,14 @@ from notion_workspace import (
     ensure_seed_rows,
     get_database_ids,
     get_default_prompt_templates,
-    get_default_search_rows,
     record_run_history,
     save_workspace_state,
     sync_automation_control_row,
     sync_default_settings_rows,
+    sync_default_search_rows,
     sync_jobs_action_links,
     sync_jobs_discovered_day,
+    sync_jobs_service_line,
 )
 
 
@@ -98,7 +99,8 @@ def main():
         sync_automation_control_row(ids["automation_control"])
         sync_jobs_action_links(ids["jobs"])
         sync_jobs_discovered_day(ids["jobs"])
-        ensure_seed_rows(ids["search_queries"], get_default_search_rows(), "Query")
+        sync_jobs_service_line(ids["jobs"])
+        sync_default_search_rows(ids["search_queries"])
         sync_default_settings_rows(ids["scraper_settings"])
         ensure_seed_rows(ids["prompt_templates"], get_default_prompt_templates(), "Template Name")
         ensure_persian_knowledge_base_page(NOTION_PARENT_PAGE_ID)
