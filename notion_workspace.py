@@ -815,39 +815,74 @@ def build_jobs_named_view_specs() -> list[dict]:
         "property": "Proposal Status",
         "status": {"equals": "Not Requested"},
     }
+    today_review_filter = {
+        "and": [
+            {"property": "Discovered Day", "date": {"equals": "today"}},
+            needs_review_filter,
+        ]
+    }
+    yesterday_review_filter = {
+        "and": [
+            {"property": "Discovered Day", "date": {"equals": "yesterday"}},
+            needs_review_filter,
+        ]
+    }
+    older_this_week_review_filter = {
+        "and": [
+            {"property": "Discovered Day", "date": {"before": "yesterday"}},
+            {"property": "Discovered Day", "date": {"on_or_after": "one_week_ago"}},
+            needs_review_filter,
+        ]
+    }
+    week_review_filter = {
+        "and": [
+            {"property": "Discovered Day", "date": {"past_week": {}}},
+            needs_review_filter,
+        ]
+    }
 
     return [
         {
             "name": "01 Today",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
-            "filter": {
-                "and": [
-                    {"property": "Discovered Day", "date": {"equals": "today"}},
-                    needs_review_filter,
-                ]
-            },
+            "filter": today_review_filter,
             "sorts": build_jobs_table_view_sorts(),
         },
         {
-            "name": "02 Review",
+            "name": "02 Yesterday",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
-            "filter": needs_review_filter,
+            "filter": yesterday_review_filter,
             "sorts": build_jobs_table_view_sorts(),
         },
         {
-            "name": "03 Week",
+            "name": "03 Older",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
-            "filter": {
-                "property": "Discovered Day",
-                "date": {"past_week": {}},
-            },
+            "filter": older_this_week_review_filter,
             "sorts": [
                 {"property": "Discovered Day", "direction": "descending"},
                 *build_jobs_table_view_sorts(),
             ],
         },
         {
-            "name": "04 Proposal",
+            "name": "04 Review",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": needs_review_filter,
+            "sorts": [
+                {"property": "Discovered Day", "direction": "descending"},
+                *build_jobs_table_view_sorts(),
+            ],
+        },
+        {
+            "name": "05 Week",
+            "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
+            "filter": week_review_filter,
+            "sorts": [
+                {"property": "Discovered Day", "direction": "descending"},
+                *build_jobs_table_view_sorts(),
+            ],
+        },
+        {
+            "name": "06 Proposal",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
                 "and": [
@@ -858,7 +893,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             "sorts": build_jobs_table_view_sorts(),
         },
         {
-            "name": "05 Ready",
+            "name": "07 Ready",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
                 "property": "Proposal Status",
@@ -870,7 +905,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "06 Applied",
+            "name": "08 Applied",
             "visible_order": JOBS_REVIEW_VISIBLE_ORDER,
             "filter": {
                 "property": "Status",
@@ -882,7 +917,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "07 Archive",
+            "name": "09 Archive",
             "filter": rejected_filter,
             "sorts": [
                 {"property": "Discovered Day", "direction": "descending"},
@@ -890,7 +925,7 @@ def build_jobs_named_view_specs() -> list[dict]:
             ],
         },
         {
-            "name": "08 All",
+            "name": "10 All",
             "filter": None,
             "sorts": [
                 {"property": "Discovered Day", "direction": "descending"},
@@ -1625,7 +1660,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             "جریان روزانه مدیر دیجیتال مارکتینگ",
             [
                 paragraph_block("1. وارد دیتابیس Jobs می‌شود."),
-                paragraph_block("2. از ویوی 01 Today یا 02 Review شروع می‌کند."),
+                paragraph_block("2. از 01 Today شروع می‌کند، بعد 02 Yesterday و بعد 03 Older را می‌بیند."),
                 paragraph_block("3. جاب خوب را بررسی می‌کند و اگر مناسب بود تیک Generate Proposal را می‌زند."),
                 paragraph_block("4. اگر نیاز به جاب‌های جدید داشت، در دیتابیس Automation Control فقط تیک Fetch New Jobs را می‌زند."),
                 paragraph_block("5. خروجی proposal را در همان صفحه جاب و نتایج اجرا را در Run History می‌بیند."),
@@ -1729,18 +1764,20 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             "Review Inbox",
             [
                 paragraph_block("01 Today: جاب‌های امروز که هنوز بررسی نشده‌اند."),
-                paragraph_block("02 Review: همه جاب‌های تصمیم‌نگرفته."),
-                paragraph_block("03 Week: مرور هفتگی برای عقب‌افتادگی‌ها."),
+                paragraph_block("02 Yesterday: جاب‌های دیروز که هنوز بررسی نشده‌اند."),
+                paragraph_block("03 Older: جاب‌های قبل از دیروز در هفته اخیر."),
+                paragraph_block("04 Review: همه جاب‌های تصمیم‌نگرفته به عنوان backlog کامل."),
+                paragraph_block("05 Week: مرور هفتگی تصمیم‌نگرفته‌ها بر اساس روز و امتیاز."),
             ],
         ),
         toggle_block(
             "Proposal و آرشیو",
             [
-                paragraph_block("04 Proposal: جاب‌های تاییدشده که هنوز proposal نگرفته‌اند."),
-                paragraph_block("05 Ready: proposal ساخته شده و آماده استفاده است."),
-                paragraph_block("06 Applied: جاب‌هایی که اقدام نهایی روی آن‌ها انجام شده است."),
-                paragraph_block("07 Archive: موارد آرشیوی که نباید جدول اصلی را شلوغ کنند."),
-                paragraph_block("08 All: آرشیو کامل به ترتیب روز."),
+                paragraph_block("06 Proposal: جاب‌های تاییدشده که هنوز proposal نگرفته‌اند."),
+                paragraph_block("07 Ready: proposal ساخته شده و آماده استفاده است."),
+                paragraph_block("08 Applied: جاب‌هایی که اقدام نهایی روی آن‌ها انجام شده است."),
+                paragraph_block("09 Archive: موارد آرشیوی که نباید جدول اصلی را شلوغ کنند."),
+                paragraph_block("10 All: آرشیو کامل به ترتیب روز."),
             ],
         ),
         divider_block(),

@@ -429,25 +429,31 @@ The `Jobs` database is configured as a review inbox, not one endless table. Use 
 01 Today
 Review only jobs discovered today with Manager Review = New.
 
-02 Review
-All unreviewed jobs. This is the main review backlog.
+02 Yesterday
+Review only yesterday's unreviewed jobs.
 
-03 Week
-Weekly review sorted by day and match score.
+03 Older
+Unreviewed jobs from before yesterday, limited to the recent week.
 
-04 Proposal
+04 Review
+All unreviewed jobs. Use this only as the full backlog.
+
+05 Week
+Weekly unreviewed review sorted by day and match score.
+
+06 Proposal
 Approved jobs that still need proposal generation.
 
-05 Ready
+07 Ready
 Generated proposals ready to submit on Upwork.
 
-06 Applied
+08 Applied
 Jobs already submitted.
 
-07 Archive
+09 Archive
 Archived decisions that should not pollute active views.
 
-08 All
+10 All
 Fallback archive sorted by newest discovered day first.
 ```
 
@@ -455,11 +461,11 @@ Daily operating flow:
 
 ```text
 1. Start in 01 Today.
-2. Review from highest Match Score downward.
-3. Set Manager Review to Approved, Rejected, or leave New for later.
-4. Tick Generate Proposal for approved jobs.
-5. Submit ready proposals from 05 Ready.
-6. Use 02 Review when today's queue is clear.
+2. Move to 02 Yesterday, then 03 Older if today's queue is clear.
+3. Review from highest Match Score downward.
+4. Set Manager Review to Approved, Rejected, or leave New for later.
+5. Tick Generate Proposal for approved jobs.
+6. Submit ready proposals from 07 Ready.
 ```
 
 The active review views show decision columns such as `Generate Proposal`, `Manager Review`, `Proposal Status`, and `Status`. Long/internal fields such as `Job Summary`, `AI Notes`, and `Proposal Preview` stay hidden from table views.
