@@ -1686,7 +1686,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             "Automation Control",
             [
                 paragraph_block("پنل کنترل روزانه برای کارهای اجرایی است."),
-                paragraph_block("Fetch New Jobs: تنها کاری که مدیر برای دریافت لیست جدید باید انجام دهد."),
+                paragraph_block("Fetch New Jobs: تنها کاری که مدیر برای دریافت لیست جدید باید انجام دهد. در حالت درست، Notion Automation همین تیک را به webhook عمومی وصل می‌کند."),
                 paragraph_block("Fetch Status: وضعیت اجرا را با مقدارهایی مثل Idle, Running, Success, Failed نشان می‌دهد."),
                 paragraph_block("Last Fetch At: آخرین زمان موفق دریافت جاب‌های جدید."),
                 paragraph_block("Help: راهنمای خیلی کوتاه همان‌جا برای مدیر."),
@@ -1727,7 +1727,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
         toggle_block(
             "Propertyهای تصمیم‌گیری روزانه",
             [
-                paragraph_block("Generate Proposal: اگر تیک بخورد، سیستم همین جاب را برای ساخت proposal برمی‌دارد."),
+                paragraph_block("Generate Proposal: اگر تیک بخورد و Notion Automation فعال باشد، webhook عمومی GitHub Action را فوراً اجرا می‌کند."),
                 paragraph_block("Manager Review: New یعنی هنوز بررسی نشده، Approved یعنی تایید شده، Rejected یعنی رد شده."),
                 paragraph_block("Proposal Status: Not Requested, Requested, Generating, Ready, Failed."),
                 paragraph_block("Status: وضعیت کلی داخلی مثل Draft, Applied, Rejected, Skipped."),
@@ -1788,7 +1788,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
                 paragraph_block("1. وارد دیتابیس Automation Control شو."),
                 paragraph_block("2. ردیف Primary Control را باز کن."),
                 paragraph_block("3. فقط تیک Fetch New Jobs را بزن."),
-                paragraph_block("4. چند دقیقه صبر کن و Fetch Status را ببین."),
+                paragraph_block("4. اگر Notion Automation به webhook وصل باشد، GitHub Action فوراً dispatch می‌شود."),
                 paragraph_block("5. اگر Success شد، Last Fetch At زمان آخرین دریافت را نشان می‌دهد."),
             ],
         ),
@@ -1797,7 +1797,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             [
                 paragraph_block("1. جاب را در Jobs باز کن یا در همان جدول پیدا کن."),
                 paragraph_block("2. تیک Generate Proposal را فعال کن."),
-                paragraph_block("3. سیستم خودش Manager Review و Proposal Status را مدیریت می‌کند."),
+                paragraph_block("3. Notion Automation باید webhook /notion/generate-proposal را صدا بزند؛ بعد سیستم خودش Manager Review و Proposal Status را مدیریت می‌کند."),
                 paragraph_block("4. خروجی در همان صفحه زیر AI Proposal می‌آید."),
             ],
         ),

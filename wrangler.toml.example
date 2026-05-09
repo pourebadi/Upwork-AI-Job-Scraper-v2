@@ -1,0 +1,17 @@
+name = "notion-github-action-router"
+main = "cloudflare_worker.js"
+compatibility_date = "2026-05-09"
+
+# Set these with `wrangler secret put ...`, not in this file:
+# GITHUB_DISPATCH_TOKEN
+# WEBHOOK_SHARED_SECRET
+#
+# Required plain variables:
+# GITHUB_REPOSITORY = "pourebadi/Upwork-AI-Job-Scraper-v2"
+
+[vars]
+GITHUB_REPOSITORY = "pourebadi/Upwork-AI-Job-Scraper-v2"
+GITHUB_REF = "main"
+GITHUB_PROPOSAL_WORKFLOW_ID = "proposal-worker.yml"
+GITHUB_SCRAPER_WORKFLOW_ID = "scraper.yml"
+GITHUB_API_VERSION = "2022-11-28"

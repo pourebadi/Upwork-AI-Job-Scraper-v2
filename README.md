@@ -185,6 +185,8 @@ upwork-ai-job-scraper/
 ├── upwork_scraper.py
 ├── generate_requested_proposals.py
 ├── webhook_server.py
+├── cloudflare_worker.js
+├── wrangler.toml.example
 ├── config.py
 ├── proposal_template.md
 ├── requirements.txt
@@ -203,6 +205,8 @@ upwork-ai-job-scraper/
 | `upwork_scraper.py`             | Main automation script             |
 | `generate_requested_proposals.py` | Generates proposals on request   |
 | `webhook_server.py`             | Receives Notion button webhooks    |
+| `cloudflare_worker.js`          | Public webhook router for Notion   |
+| `wrangler.toml.example`         | Cloudflare Worker deploy template  |
 | `config.py`                     | Search queries and Apify settings  |
 | `proposal_template.md`          | AI proposal writing prompt         |
 | `requirements.txt`              | Python dependencies                |
@@ -279,13 +283,15 @@ python generate_requested_proposals.py
 
 Set `Manager Review = Approved` and `Proposal Status = Requested` in the `Jobs` database before running the proposal worker.
 
-### 7. Run the instant webhook trigger
+### 7. Run the webhook trigger
 
 ```bash
 python webhook_server.py
 ```
 
 This server receives POST requests from Notion buttons and dispatches the matching GitHub Actions workflow. Managers stay inside Notion; GitHub only runs the automation.
+
+For production, deploy the same router as a public Cloudflare Worker using `cloudflare_worker.js`. The local Python server is useful for development, but Notion cannot call it unless it is reachable from the public internet.
 
 Available Notion webhook routes:
 
@@ -334,6 +340,17 @@ GITHUB_PROPOSAL_WORKFLOW_ID=proposal-worker.yml
 GITHUB_SCRAPER_WORKFLOW_ID=scraper.yml
 ```
 
+Cloudflare Worker setup:
+
+```bash
+cp wrangler.toml.example wrangler.toml
+wrangler secret put GITHUB_DISPATCH_TOKEN
+wrangler secret put WEBHOOK_SHARED_SECRET
+wrangler deploy
+```
+
+After deployment, use the Worker URL as your public webhook base URL.
+
 ## Notion-First Automation
 
 The repository now supports a fully coded Notion-first flow with no daily GitHub clicks.
@@ -375,7 +392,8 @@ Proposal generation:
 
 ```text
 Manager ticks Generate Proposal
-→ proposal-worker.yml checks Notion every 5 minutes
+→ Notion database automation sends a webhook to /notion/generate-proposal
+→ cloudflare_worker.js or webhook_server.py dispatches proposal-worker.yml immediately
 → generate_requested_proposals.py picks up checked jobs
 → it auto-approves the job and sets Proposal Status to Generating
 → proposal text is written back into the same page
@@ -386,12 +404,29 @@ List refresh / workspace refresh:
 
 ```text
 Manager ticks Fetch New Jobs in Automation Control
-→ scraper.yml polls Notion every few minutes
+→ Notion database automation sends a webhook to /notion/run-scraper
+→ cloudflare_worker.js or webhook_server.py dispatches scraper.yml immediately
 → run_notion_controlled_scraper.py runs setup_notion_workspace.py and/or upwork_scraper.py
 → Fetch Status and Last Fetch At are updated in the same row
 ```
 
-Old admin-only properties still exist behind the scenes for compatibility, but they should stay hidden from daily users.
+Required Notion automations:
+
+```text
+Jobs automation
+Trigger: Generate Proposal is checked
+Action: Send webhook
+URL: https://YOUR_WORKER_URL/notion/generate-proposal
+Header: X-Webhook-Secret = your_shared_secret
+
+Automation Control automation
+Trigger: Fetch New Jobs is checked
+Action: Send webhook
+URL: https://YOUR_WORKER_URL/notion/run-scraper
+Header: X-Webhook-Secret = your_shared_secret
+```
+
+The scheduled polling workflows remain as a fallback, but they are not the recommended manager-facing trigger. Old admin-only properties still exist behind the scenes for compatibility, but they should stay hidden from daily users.
 
 ---
 

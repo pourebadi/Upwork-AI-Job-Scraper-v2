@@ -7,6 +7,7 @@ import os
 import time
 
 import notion_workspace as nw
+import setup_notion_workspace as setup_workspace
 import upwork_scraper as scraper
 
 
@@ -17,6 +18,25 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+
+def has_required_proposal_databases() -> bool:
+    ids = nw.get_database_ids()
+    required_keys = {
+        "jobs",
+        "scraper_settings",
+        "run_history",
+        "prompt_templates",
+    }
+    return required_keys.issubset({key for key, value in ids.items() if value})
+
+
+def bootstrap_workspace_if_needed():
+    if has_required_proposal_databases():
+        return
+
+    logger.info("Missing Notion database IDs; running workspace setup before proposal generation.")
+    setup_workspace.main()
 
 
 def find_description_toggle(page_id: str) -> str:
@@ -217,5 +237,6 @@ def main():
 
 
 if __name__ == "__main__":
+    bootstrap_workspace_if_needed()
     scraper.apply_workspace_settings()
     main()
