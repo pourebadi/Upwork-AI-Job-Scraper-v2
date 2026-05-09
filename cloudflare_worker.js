@@ -595,9 +595,16 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/health") {
+      const missingDirectProposalSecrets = [];
+      if (!env.NOTION_API_KEY) missingDirectProposalSecrets.push("NOTION_API_KEY");
+      if (!env.OPENAI_API_KEY) missingDirectProposalSecrets.push("OPENAI_API_KEY");
+
       return jsonResponse({
         ok: true,
         service: "notion-github-action-router",
+        proposal_mode: missingDirectProposalSecrets.length ? "github_actions_fallback" : "direct_worker",
+        direct_proposal_ready: missingDirectProposalSecrets.length === 0,
+        missing_direct_proposal_secrets: missingDirectProposalSecrets,
         routes: Object.keys(ACTION_ROUTES).filter((route) => route !== "/health"),
       });
     }
