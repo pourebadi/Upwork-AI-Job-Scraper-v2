@@ -4,8 +4,8 @@ Run Notion-controlled scraper actions.
 Managers should only need one visible action in Notion:
 - check "Fetch New Jobs" in Automation Control
 
-The workflow polls Notion on a short schedule and runs only when a manual
-request exists or when the normal 6-hour scraper window is due.
+The workflow runs automatically on GitHub's 3-hour schedule. It can also run
+immediately when Notion sends a webhook or when an admin starts it manually.
 """
 
 import logging
@@ -27,11 +27,6 @@ logger = logging.getLogger(__name__)
 
 def is_true(value: str) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
-
-
-def is_scheduled_scraper_window() -> bool:
-    now = nw.now_utc()
-    return now.minute == 0 and now.hour % 6 == 0
 
 
 def update_control_row(page_id: str, properties: dict):
@@ -64,7 +59,7 @@ def main():
     refresh_workspace_now = (
         nw.get_checkbox_property(control_row, "Refresh Workspace Now", False) if control_row else False
     )
-    scheduled_scrape_due = trigger_source == "schedule" and is_scheduled_scraper_window()
+    scheduled_scrape_due = trigger_source == "schedule"
 
     should_refresh_workspace = setup_only or refresh_workspace_now
     should_run_scraper = (
@@ -82,7 +77,12 @@ def main():
     if should_refresh_workspace:
         action_parts.append("Refresh Workspace")
     if should_run_scraper:
-        action_parts.append("Run Scraper")
+        if scheduled_scrape_due:
+            action_parts.append("Scheduled Scraper")
+        elif trigger_source == "notion":
+            action_parts.append("Notion Scraper")
+        else:
+            action_parts.append("Manual Scraper")
     action_label = " + ".join(action_parts)
 
     start_message = "Fetching new jobs..." if should_run_scraper else "Refreshing workspace..."

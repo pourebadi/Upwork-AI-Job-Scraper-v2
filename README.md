@@ -73,7 +73,7 @@ Instead of starting from an empty search page every day, you get a clean pipelin
 
 ## What It Does
 
-The system runs on a schedule or manually through GitHub Actions.
+The system runs automatically every 3 hours through GitHub Actions. Managers can also trigger a faster manual fetch from Notion when needed.
 
 It searches Upwork through Apify, collects structured job data, removes duplicates, scores each job, writes a proposal draft with OpenAI, and sends everything into Notion as a clean review page.
 
@@ -365,7 +365,8 @@ When `setup_notion_workspace.py` runs, it also creates or refreshes a Persian kn
 3. Tick Generate Proposal on that row.
 4. Wait for Proposal Status to move to Generating and then Ready.
 5. Read the generated proposal inside the same job page.
-6. If you need fresh jobs, open Automation Control and tick Fetch New Jobs.
+6. Usually do nothing for fetching: the scraper runs automatically every 3 hours.
+7. If you need fresh jobs sooner, open Automation Control and tick Fetch New Jobs.
 ```
 
 ### What the code creates in Notion
@@ -400,7 +401,17 @@ Manager ticks Generate Proposal
 → Proposal Status becomes Ready
 ```
 
-List refresh / workspace refresh:
+Automatic list refresh:
+
+```text
+GitHub Actions runs scraper.yml every 3 hours
+→ run_notion_controlled_scraper.py runs upwork_scraper.py
+→ new jobs are written into Jobs
+→ Automation Control shows Fetch Status and Last Fetch At
+→ Run History records the execution
+```
+
+Manual list refresh / workspace refresh:
 
 ```text
 Manager ticks Fetch New Jobs in Automation Control
@@ -426,7 +437,7 @@ URL: https://YOUR_WORKER_URL/notion/run-scraper
 Header: X-Webhook-Secret = your_shared_secret
 ```
 
-The scheduled polling workflows remain as a fallback, but they are not the recommended manager-facing trigger. Old admin-only properties still exist behind the scenes for compatibility, but they should stay hidden from daily users.
+The scheduled scraper is the default path. The Notion webhook is only for manual early refreshes or workspace refreshes. Old admin-only properties still exist behind the scenes for compatibility, but they should stay hidden from daily users.
 
 ---
 

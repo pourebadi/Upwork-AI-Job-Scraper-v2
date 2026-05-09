@@ -1585,7 +1585,10 @@ def sync_default_search_rows(database_id: str):
 def get_default_automation_control_rows() -> list[dict]:
     run_scraper_link = build_webhook_action_url("/notion/run-scraper")
     refresh_workspace_link = build_webhook_action_url("/notion/refresh-workspace")
-    usage_message = "برای دریافت جاب جدید فقط تیک Fetch New Jobs را بزن. بعد از چند دقیقه Fetch Status و Last Fetch At را ببین."
+    usage_message = (
+        "سیستم هر ۳ ساعت خودش جاب‌های جدید را می‌گیرد. "
+        "اگر زودتر نیاز داشتی فقط تیک Fetch New Jobs را بزن و بعد Fetch Status و Last Fetch At را ببین."
+    )
     return [
         {
             "properties": {
@@ -1853,8 +1856,9 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
                 paragraph_block("1. وارد دیتابیس Jobs می‌شود."),
                 paragraph_block("2. از 01 Today شروع می‌کند، بعد 02 Yesterday و بعد 03 Older را می‌بیند."),
                 paragraph_block("3. جاب خوب را بررسی می‌کند و اگر مناسب بود تیک Generate Proposal را می‌زند."),
-                paragraph_block("4. اگر نیاز به جاب‌های جدید داشت، در دیتابیس Automation Control فقط تیک Fetch New Jobs را می‌زند."),
-                paragraph_block("5. خروجی proposal را در همان صفحه جاب و نتایج اجرا را در Run History می‌بیند."),
+                paragraph_block("4. معمولاً نیازی به اجرای دستی ندارد؛ scraper هر ۳ ساعت خودکار اجرا می‌شود."),
+                paragraph_block("5. اگر نیاز به جاب‌های جدیدتر داشت، در دیتابیس Automation Control فقط تیک Fetch New Jobs را می‌زند."),
+                paragraph_block("6. خروجی proposal را در همان صفحه جاب و نتایج اجرا را در Run History می‌بیند."),
             ],
         ),
         divider_block(),
@@ -1878,7 +1882,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             "Automation Control",
             [
                 paragraph_block("پنل کنترل روزانه برای کارهای اجرایی است."),
-                paragraph_block("Fetch New Jobs: تنها کاری که مدیر برای دریافت لیست جدید باید انجام دهد. در حالت درست، Notion Automation همین تیک را به webhook عمومی وصل می‌کند."),
+                paragraph_block("Fetch New Jobs: اجرای دستی و فوری است. حالت پیش‌فرض این است که سیستم هر ۳ ساعت خودش اجرا می‌شود؛ این تیک فقط برای وقتی است که مدیر زودتر از زمان‌بندی جاب جدید می‌خواهد."),
                 paragraph_block("Fetch Status: وضعیت اجرا را با مقدارهایی مثل Idle, Running, Success, Failed نشان می‌دهد."),
                 paragraph_block("Last Fetch At: آخرین زمان موفق دریافت جاب‌های جدید."),
                 paragraph_block("Help: راهنمای خیلی کوتاه همان‌جا برای مدیر."),

@@ -17,7 +17,8 @@ on:
           - "false"
           - "true"
   schedule:
-    - cron: "*/5 * * * *"
+    # Runs automatically every 3 hours. GitHub cron is UTC.
+    - cron: "0 */3 * * *"
 
 jobs:
   run-scraper:
