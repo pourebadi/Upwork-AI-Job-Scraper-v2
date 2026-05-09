@@ -20,6 +20,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def get_trigger_source() -> str:
+    return os.getenv("RUN_TRIGGER_SOURCE", "schedule").strip().lower() or "schedule"
+
+
 def has_required_proposal_databases() -> bool:
     ids = nw.get_database_ids()
     required_keys = {
@@ -127,21 +131,6 @@ def set_failed(page_id: str, error_message: str):
 
 def set_ready(page: dict, proposal: str, ai_notes: str, model_name: str, template_name: str):
     page_id = page["id"]
-    nw.update_page(
-        page_id,
-        {
-            "Generate Proposal": nw.checkbox_property(True),
-            "Manager Review": nw.status_property("Approved"),
-            "Proposal Status": nw.status_property("Ready"),
-            "Proposal Generated At": nw.date_property(nw.now_iso()),
-            "Proposal Preview": nw.rich_text_property(""),
-            "AI Model": nw.rich_text_property(model_name),
-            "AI Notes": nw.rich_text_property(""),
-            "Job Summary": nw.rich_text_property(""),
-            "Proposal Error": nw.rich_text_property(""),
-        },
-    )
-
     blocks = [
         nw.divider_block(),
         nw.heading_block("AI Proposal"),
@@ -158,6 +147,21 @@ def set_ready(page: dict, proposal: str, ai_notes: str, model_name: str, templat
         nw.insert_block_children_after(page_id, insert_after, blocks)
     else:
         nw.append_block_children(page_id, blocks)
+
+    nw.update_page(
+        page_id,
+        {
+            "Generate Proposal": nw.checkbox_property(True),
+            "Manager Review": nw.status_property("Approved"),
+            "Proposal Status": nw.status_property("Ready"),
+            "Proposal Generated At": nw.date_property(nw.now_iso()),
+            "Proposal Preview": nw.rich_text_property(""),
+            "AI Model": nw.rich_text_property(model_name),
+            "AI Notes": nw.rich_text_property(""),
+            "Job Summary": nw.rich_text_property(""),
+            "Proposal Error": nw.rich_text_property(""),
+        },
+    )
 
 
 def get_requested_jobs() -> list[dict]:
@@ -192,12 +196,19 @@ def main():
     proposals_generated = 0
     first_job_url = ""
     processed_job_links = []
+    job_errors = []
 
     try:
         requested_jobs = get_requested_jobs()
         logger.info("Requested jobs found: %s", len(requested_jobs))
 
         if not requested_jobs:
+            trigger_source = get_trigger_source()
+            target_page_id = os.getenv("NOTION_TARGET_PAGE_ID", "").strip()
+            if trigger_source == "schedule" and not target_page_id:
+                logger.info("Scheduled proposal check found no requested jobs; skipping Run History record.")
+                return
+
             nw.record_run_history(
                 run_type="Proposal Generator",
                 status="Success",
@@ -212,44 +223,56 @@ def main():
             page_id = page["id"]
             title = nw.get_page_title(page)
 
-            logger.info("Generating proposal for: %s", title[:80])
-            set_generating(page_id)
+            try:
+                logger.info("Generating proposal for: %s", title[:80])
+                set_generating(page_id)
 
-            template_page = find_template_by_name(nw.get_plain_text_property(page, "Prompt Template"))
-            resolved_template_name = ""
-            if template_page:
-                resolved_template_name = nw.get_page_title(template_page)
-                nw.update_page(page_id, {"Prompt Template": nw.rich_text_property(resolved_template_name)})
+                template_page = find_template_by_name(nw.get_plain_text_property(page, "Prompt Template"))
+                resolved_template_name = ""
+                if template_page:
+                    resolved_template_name = nw.get_page_title(template_page)
+                    nw.update_page(page_id, {"Prompt Template": nw.rich_text_property(resolved_template_name)})
 
-            job_payload = build_job_payload(page, override_template_name=resolved_template_name)
-            proposal, ai_notes = scraper.generate_proposal(job_payload)
+                job_payload = build_job_payload(page, override_template_name=resolved_template_name)
+                proposal, ai_notes = scraper.generate_proposal(job_payload)
 
-            if not proposal.strip():
-                set_failed(page_id, ai_notes or "Proposal generation returned empty output")
-                continue
+                if not proposal.strip():
+                    error_message = ai_notes or "Proposal generation returned empty output"
+                    set_failed(page_id, error_message)
+                    job_errors.append(f"{title}: {error_message}")
+                    continue
 
-            set_ready(
-                page,
-                proposal,
-                ai_notes,
-                model_name=scraper.OPENAI_MODEL,
-                template_name=resolved_template_name or nw.get_plain_text_property(page, "Prompt Template"),
-            )
-            proposals_generated += 1
-            if page.get("url"):
-                if not first_job_url:
-                    first_job_url = page["url"]
-                processed_job_links.append(f"{title}: {page['url']}")
-            time.sleep(0.5)
+                set_ready(
+                    page,
+                    proposal,
+                    ai_notes,
+                    model_name=scraper.OPENAI_MODEL,
+                    template_name=resolved_template_name or nw.get_plain_text_property(page, "Prompt Template"),
+                )
+                proposals_generated += 1
+                if page.get("url"):
+                    if not first_job_url:
+                        first_job_url = page["url"]
+                    processed_job_links.append(f"{title}: {page['url']}")
+                time.sleep(0.5)
+            except Exception as error:
+                logger.exception("Proposal generation failed for job: %s", title[:80])
+                error_message = str(error)
+                job_errors.append(f"{title}: {error_message}")
+                try:
+                    set_failed(page_id, error_message)
+                except Exception:
+                    logger.exception("Could not mark failed proposal job: %s", title[:80])
 
         nw.record_run_history(
             run_type="Proposal Generator",
-            status="Success",
+            status="Failed" if job_errors else "Success",
             started_at=started_at,
             finished_at=nw.now_iso(),
             proposals_generated=proposals_generated,
             job_url=first_job_url,
             job_links="\n".join(processed_job_links),
+            error_message="\n".join(job_errors),
         )
 
     except Exception as error:

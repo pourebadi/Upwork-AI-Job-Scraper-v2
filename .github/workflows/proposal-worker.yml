@@ -15,6 +15,10 @@ on:
   schedule:
     - cron: "*/5 * * * *"
 
+concurrency:
+  group: proposal-worker-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   generate-proposals:
     runs-on: ubuntu-latest
@@ -37,5 +41,6 @@ jobs:
           NOTION_PARENT_PAGE_ID: ${{ secrets.NOTION_PARENT_PAGE_ID }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
-          NOTION_TARGET_PAGE_ID: ${{ inputs.notion_page_id }}
+          RUN_TRIGGER_SOURCE: ${{ github.event_name == 'workflow_dispatch' && inputs.trigger_source || 'schedule' }}
+          NOTION_TARGET_PAGE_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.notion_page_id || '' }}
         run: python generate_requested_proposals.py

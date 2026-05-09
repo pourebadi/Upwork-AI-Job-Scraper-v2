@@ -1,13 +1,17 @@
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 NOTION_API_KEY = os.getenv("NOTION_API_KEY", "")
 NOTION_PARENT_PAGE_ID = os.getenv("NOTION_PARENT_PAGE_ID", "")
@@ -146,6 +150,10 @@ def safe_text(value, limit: int = 1900) -> str:
     if value is None:
         return ""
     return str(value)[:limit]
+
+
+def normalize_notion_id(value: str) -> str:
+    return str(value or "").strip().replace("-", "")
 
 
 def chunk_text(text: str, chunk_size: int = 1800) -> list[str]:
@@ -471,24 +479,34 @@ def get_database_title(database: dict) -> str:
 
 
 def find_database_under_parent(parent_page_id: str, title: str) -> Optional[dict]:
+    normalized_parent_page_id = normalize_notion_id(parent_page_id)
+
     for database in search_databases_by_title(title):
         if get_database_title(database) != title:
             continue
 
         parent = database.get("parent", {})
-        if parent.get("type") == "page_id" and parent.get("page_id") == parent_page_id:
+        if (
+            parent.get("type") == "page_id"
+            and normalize_notion_id(parent.get("page_id")) == normalized_parent_page_id
+        ):
             return database
 
     return None
 
 
 def find_page_under_parent(parent_page_id: str, title: str) -> Optional[dict]:
+    normalized_parent_page_id = normalize_notion_id(parent_page_id)
+
     for page in search_pages_by_title(title):
         if get_page_title(page) != title:
             continue
 
         parent = page.get("parent", {})
-        if parent.get("type") == "page_id" and parent.get("page_id") == parent_page_id:
+        if (
+            parent.get("type") == "page_id"
+            and normalize_notion_id(parent.get("page_id")) == normalized_parent_page_id
+        ):
             return page
 
     return None
@@ -1435,7 +1453,7 @@ def build_webhook_action_url(path: str) -> str:
     url = f"{WEBHOOK_PUBLIC_BASE_URL}{path}"
     if WEBHOOK_SHARED_SECRET:
         separator = "&" if "?" in url else "?"
-        url = f"{url}{separator}secret={WEBHOOK_SHARED_SECRET}"
+        url = f"{url}{separator}{urlencode({'secret': WEBHOOK_SHARED_SECRET})}"
     return url
 
 
@@ -1449,7 +1467,7 @@ def build_generate_proposal_action_url(page_id: str) -> str:
         return ""
 
     separator = "&" if "?" in base else "?"
-    return f"{base}{separator}page_id={page_id}"
+    return f"{base}{separator}{urlencode({'page_id': page_id})}"
 
 
 def build_scraper_settings_schema() -> dict:
@@ -1573,6 +1591,14 @@ def sync_default_search_rows(database_id: str):
 
     for title, page in existing_by_title.items():
         if title not in defaults_by_title:
+            notes = get_plain_text_property(page, "Notes")
+            is_managed_seed_row = (
+                "Seeded from config.py" in notes
+                or "Disabled because it is no longer part of the Heli Studio search config." in notes
+            )
+            if not is_managed_seed_row:
+                continue
+
             update_page(
                 page["id"],
                 {
@@ -2119,14 +2145,17 @@ def load_scraper_settings(refresh: bool = False) -> dict:
         value = get_plain_text_property(row, "Value")
         value_type = get_plain_text_property(row, "Type") or "string"
 
-        if value_type == "bool":
-            settings[key] = value.strip().lower() in {"1", "true", "yes", "on"}
-        elif value_type == "int":
-            settings[key] = int(float(value or 0))
-        elif value_type == "float":
-            settings[key] = float(value or 0)
-        else:
-            settings[key] = value
+        try:
+            if value_type == "bool":
+                settings[key] = value.strip().lower() in {"1", "true", "yes", "on"}
+            elif value_type == "int":
+                settings[key] = int(float(value or 0))
+            elif value_type == "float":
+                settings[key] = float(value or 0)
+            else:
+                settings[key] = value
+        except (TypeError, ValueError):
+            logger.warning("Ignoring invalid scraper setting %s=%r as %s", key, value, value_type)
 
     _SETTINGS_CACHE = dict(settings)
     return settings

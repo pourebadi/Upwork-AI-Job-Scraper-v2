@@ -20,6 +20,10 @@ on:
     # Runs automatically every 3 hours. GitHub cron is UTC.
     - cron: "0 */3 * * *"
 
+concurrency:
+  group: upwork-scraper-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
