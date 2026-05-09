@@ -40,6 +40,19 @@ def update_control_row(page_id: str, properties: dict):
     nw.update_page(page_id, properties)
 
 
+def has_required_scraper_databases() -> bool:
+    ids = nw.get_database_ids()
+    required_keys = {
+        "jobs",
+        "automation_control",
+        "search_queries",
+        "scraper_settings",
+        "run_history",
+        "prompt_templates",
+    }
+    return required_keys.issubset({key for key, value in ids.items() if value})
+
+
 def main():
     trigger_source = os.getenv("RUN_TRIGGER_SOURCE", "schedule").strip().lower() or "schedule"
     setup_only = is_true(os.getenv("SETUP_ONLY", "false"))
@@ -84,7 +97,11 @@ def main():
     )
 
     try:
-        if should_refresh_workspace:
+        should_bootstrap_workspace = should_run_scraper and not has_required_scraper_databases()
+
+        if should_refresh_workspace or should_bootstrap_workspace:
+            if should_bootstrap_workspace:
+                logger.info("Missing Notion database IDs; running workspace setup before scraping.")
             setup_workspace.main()
 
         updates = {
