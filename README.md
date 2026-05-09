@@ -348,7 +348,7 @@ When `setup_notion_workspace.py` runs, it also creates or refreshes a Persian kn
 3. Tick Generate Proposal on that row.
 4. Wait for Proposal Status to move to Generating and then Ready.
 5. Read the generated proposal inside the same job page.
-6. If today's list needs a refresh, open Automation Control and click Run Scraper Link.
+6. If you need fresh jobs, open Automation Control and tick Fetch New Jobs.
 ```
 
 ### What the code creates in Notion
@@ -363,16 +363,10 @@ Generate Proposal (checkbox)
 
 ```text
 Primary Control
-Run Scraper Now
-Run Scraper Link
-Refresh Workspace Now
-Refresh Workspace Link
-Last Result
-Last Action
-Last Completed At
-Last Scraper Run At
-Last Workspace Refresh At
-Last Message
+Fetch New Jobs
+Fetch Status
+Last Fetch At
+Help
 ```
 
 ### How it works
@@ -391,23 +385,13 @@ Manager ticks Generate Proposal
 List refresh / workspace refresh:
 
 ```text
-Manager clicks Run Scraper Link or Refresh Workspace Link in Automation Control
-→ webhook_server.py dispatches scraper.yml immediately
+Manager ticks Fetch New Jobs in Automation Control
+→ scraper.yml polls Notion every few minutes
 → run_notion_controlled_scraper.py runs setup_notion_workspace.py and/or upwork_scraper.py
-→ the control row is updated with result and timestamps
+→ Fetch Status and Last Fetch At are updated in the same row
 ```
 
-### Optional instant buttons
-
-If you want actions to start immediately instead of waiting for the 15-minute poll, you can still add Notion buttons that call these webhook routes:
-
-```text
-/notion/run-scraper
-/notion/generate-proposal
-/notion/refresh-workspace
-```
-
-This checkbox flow is the recommended daily flow because it works directly inside the Notion table without needing a separate visible link field.
+Old admin-only properties still exist behind the scenes for compatibility, but they should stay hidden from daily users.
 
 ---
 

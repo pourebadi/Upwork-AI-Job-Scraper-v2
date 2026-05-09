@@ -991,16 +991,10 @@ SCRAPER_SETTINGS_TABLE_HIDDEN_PROPERTIES = {
 
 AUTOMATION_CONTROL_VISIBLE_ORDER = [
     "Control",
-    "Run Scraper Now",
-    "Run Scraper Link",
-    "Refresh Workspace Now",
-    "Refresh Workspace Link",
-    "Last Result",
-    "Last Action",
-    "Last Completed At",
-    "Last Scraper Run At",
-    "Last Workspace Refresh At",
-    "Last Message",
+    "Fetch New Jobs",
+    "Fetch Status",
+    "Last Fetch At",
+    "Help",
 ]
 
 
@@ -1264,6 +1258,19 @@ def build_search_queries_schema() -> dict:
 def build_automation_control_schema() -> dict:
     return {
         "Control": {"title": {}},
+        "Fetch New Jobs": {"checkbox": {}},
+        "Fetch Status": {
+            "status": {
+                "options": [
+                    {"name": "Idle", "color": "gray"},
+                    {"name": "Running", "color": "blue"},
+                    {"name": "Success", "color": "green"},
+                    {"name": "Failed", "color": "red"},
+                ]
+            }
+        },
+        "Last Fetch At": {"date": {}},
+        "Help": {"rich_text": {}},
         "Run Scraper Now": {"checkbox": {}},
         "Run Scraper Link": {"url": {}},
         "Refresh Workspace Now": {"checkbox": {}},
@@ -1401,15 +1408,15 @@ def get_default_search_rows() -> list[dict]:
 def get_default_automation_control_rows() -> list[dict]:
     run_scraper_link = build_webhook_action_url("/notion/run-scraper")
     refresh_workspace_link = build_webhook_action_url("/notion/refresh-workspace")
-    usage_message = (
-        "برای اجرای فوری، روی Run Scraper Link کلیک کن. "
-        "اگر لینک هنوز تنظیم نشده، WEBHOOK_PUBLIC_BASE_URL را روی سرور ست کن. "
-        "checkboxها فقط fallback هستند و با schedule کار می‌کنند."
-    )
+    usage_message = "برای دریافت جاب جدید فقط تیک Fetch New Jobs را بزن. بعد از چند دقیقه Fetch Status و Last Fetch At را ببین."
     return [
         {
             "properties": {
                 "Control": title_property("Primary Control"),
+                "Fetch New Jobs": checkbox_property(False),
+                "Fetch Status": status_property("Idle"),
+                "Last Fetch At": date_property(""),
+                "Help": rich_text_property(usage_message),
                 "Run Scraper Now": checkbox_property(False),
                 "Run Scraper Link": url_property(run_scraper_link),
                 "Refresh Workspace Now": checkbox_property(False),
@@ -1552,6 +1559,8 @@ def sync_automation_control_row(database_id: str):
 
     properties = defaults[0]["properties"]
     updates = {
+        "Fetch Status": properties["Fetch Status"],
+        "Help": properties["Help"],
         "Run Scraper Link": properties["Run Scraper Link"],
         "Refresh Workspace Link": properties["Refresh Workspace Link"],
     }
@@ -1618,7 +1627,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
                 paragraph_block("1. وارد دیتابیس Jobs می‌شود."),
                 paragraph_block("2. از ویوی 01 Today یا 02 Review شروع می‌کند."),
                 paragraph_block("3. جاب خوب را بررسی می‌کند و اگر مناسب بود تیک Generate Proposal را می‌زند."),
-                paragraph_block("4. اگر نیاز به جاب‌های جدید داشت، در دیتابیس Automation Control روی Run Scraper Link کلیک می‌کند."),
+                paragraph_block("4. اگر نیاز به جاب‌های جدید داشت، در دیتابیس Automation Control فقط تیک Fetch New Jobs را می‌زند."),
                 paragraph_block("5. خروجی proposal را در همان صفحه جاب و نتایج اجرا را در Run History می‌بیند."),
             ],
         ),
@@ -1642,10 +1651,10 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             "Automation Control",
             [
                 paragraph_block("پنل کنترل روزانه برای کارهای اجرایی است."),
-                paragraph_block("Run Scraper Link: اجرای فوری scraper از داخل Notion."),
-                paragraph_block("Refresh Workspace Link: اجرای فوری sync ساختار و viewهای workspace."),
-                paragraph_block("Run Scraper Now و Refresh Workspace Now: fallback checkbox برای اجرای زمان‌بندی‌شده."),
-                paragraph_block("Last Result / Last Action / Last Message: آخرین نتیجه و توضیح اجرا را نشان می‌دهد."),
+                paragraph_block("Fetch New Jobs: تنها کاری که مدیر برای دریافت لیست جدید باید انجام دهد."),
+                paragraph_block("Fetch Status: وضعیت اجرا را با مقدارهایی مثل Idle, Running, Success, Failed نشان می‌دهد."),
+                paragraph_block("Last Fetch At: آخرین زمان موفق دریافت جاب‌های جدید."),
+                paragraph_block("Help: راهنمای خیلی کوتاه همان‌جا برای مدیر."),
             ],
         ),
         toggle_block(
@@ -1741,8 +1750,9 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             [
                 paragraph_block("1. وارد دیتابیس Automation Control شو."),
                 paragraph_block("2. ردیف Primary Control را باز کن."),
-                paragraph_block("3. روی Run Scraper Link کلیک کن."),
-                paragraph_block("4. نتیجه را از Last Result و Last Message ببین."),
+                paragraph_block("3. فقط تیک Fetch New Jobs را بزن."),
+                paragraph_block("4. چند دقیقه صبر کن و Fetch Status را ببین."),
+                paragraph_block("5. اگر Success شد، Last Fetch At زمان آخرین دریافت را نشان می‌دهد."),
             ],
         ),
         toggle_block(
@@ -1766,7 +1776,8 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
         toggle_block(
             "اگر جاب جدید نیامد",
             [
-                paragraph_block("در Automation Control نتیجه Run Scraper Link یا Last Message را ببین."),
+                paragraph_block("در Automation Control ستون Fetch Status را ببین."),
+                paragraph_block("اگر Success نشد، Last Message یا Run History را چک کن."),
                 paragraph_block("Search Queries و Scraper Settings را چک کن."),
                 paragraph_block("Run History را برای خطاهای scrape یا setup نگاه کن."),
             ],

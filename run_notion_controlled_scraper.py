@@ -1,12 +1,11 @@
 """
 Run Notion-controlled scraper actions.
 
-This worker lets non-technical managers trigger automation fully from Notion:
-- check "Run Scraper Now" in Automation Control
-- check "Refresh Workspace Now" in Automation Control
+Managers should only need one visible action in Notion:
+- check "Fetch New Jobs" in Automation Control
 
-The GitHub workflow polls Notion on a short schedule and runs only when a
-manual request exists or when the normal 6-hour scraper window is due.
+The workflow polls Notion on a short schedule and runs only when a manual
+request exists or when the normal 6-hour scraper window is due.
 """
 
 import logging
@@ -47,6 +46,7 @@ def main():
     control_row = nw.get_primary_automation_control_row()
     control_row_id = control_row["id"] if control_row else ""
 
+    fetch_new_jobs = nw.get_checkbox_property(control_row, "Fetch New Jobs", False) if control_row else False
     run_scraper_now = nw.get_checkbox_property(control_row, "Run Scraper Now", False) if control_row else False
     refresh_workspace_now = (
         nw.get_checkbox_property(control_row, "Refresh Workspace Now", False) if control_row else False
@@ -56,6 +56,7 @@ def main():
     should_refresh_workspace = setup_only or refresh_workspace_now
     should_run_scraper = (
         (trigger_source in {"manual", "notion"} and not setup_only)
+        or fetch_new_jobs
         or run_scraper_now
         or scheduled_scrape_due
     )
@@ -71,46 +72,56 @@ def main():
         action_parts.append("Run Scraper")
     action_label = " + ".join(action_parts)
 
+    start_message = "Fetching new jobs..." if should_run_scraper else "Refreshing workspace..."
     update_control_row(
         control_row_id,
         {
+            "Fetch Status": nw.status_property("Running"),
             "Last Action": nw.rich_text_property(action_label),
             "Last Result": nw.status_property("Running"),
-            "Last Message": nw.rich_text_property(f"Started via {trigger_source}."),
+            "Last Message": nw.rich_text_property(start_message),
         },
     )
 
     try:
         setup_workspace.main()
 
+        finished_at = nw.now_iso()
         updates = {
+            "Fetch Status": nw.status_property("Success"),
             "Last Action": nw.rich_text_property(action_label),
             "Last Result": nw.status_property("Success"),
-            "Last Completed At": nw.date_property(nw.now_iso()),
-            "Last Message": nw.rich_text_property(f"Completed via {trigger_source}."),
+            "Last Completed At": nw.date_property(finished_at),
+            "Last Message": nw.rich_text_property("Done. Jobs list updated."),
         }
 
         if should_refresh_workspace or should_run_scraper:
             updates["Refresh Workspace Now"] = nw.checkbox_property(False)
-            updates["Last Workspace Refresh At"] = nw.date_property(nw.now_iso())
+            updates["Last Workspace Refresh At"] = nw.date_property(finished_at)
 
         if should_run_scraper:
             scraper.apply_workspace_settings()
             scraper.run_scraper()
-            updates["Last Scraper Run At"] = nw.date_property(nw.now_iso())
+            updates["Fetch New Jobs"] = nw.checkbox_property(False)
+            updates["Last Fetch At"] = nw.date_property(finished_at)
+            updates["Last Scraper Run At"] = nw.date_property(finished_at)
             if run_scraper_now:
                 updates["Run Scraper Now"] = nw.checkbox_property(False)
+        elif fetch_new_jobs:
+            updates["Fetch New Jobs"] = nw.checkbox_property(False)
 
         update_control_row(control_row_id, updates)
 
     except Exception as error:
         logger.exception("Notion-controlled scraper run failed")
+        failed_at = nw.now_iso()
         update_control_row(
             control_row_id,
             {
+                "Fetch Status": nw.status_property("Failed"),
                 "Last Action": nw.rich_text_property(action_label),
                 "Last Result": nw.status_property("Failed"),
-                "Last Completed At": nw.date_property(nw.now_iso()),
+                "Last Completed At": nw.date_property(failed_at),
                 "Last Message": nw.rich_text_property(str(error)),
             },
         )
