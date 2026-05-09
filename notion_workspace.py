@@ -178,6 +178,22 @@ def rich_text_property(text: str) -> dict:
     }
 
 
+def rich_text_link_property(text: str, url: str) -> dict:
+    text = safe_text(text, 1900)
+    if not text or not url:
+        return {"rich_text": []}
+    return {
+        "rich_text": [
+            {
+                "text": {
+                    "content": text,
+                    "link": {"url": url},
+                }
+            }
+        ]
+    }
+
+
 def checkbox_property(value: bool) -> dict:
     return {"checkbox": bool(value)}
 
@@ -602,6 +618,16 @@ def update_page(page_id: str, properties: dict) -> dict:
 
 def append_block_children(block_id: str, children: list[dict]) -> dict:
     return notion_patch(f"/blocks/{block_id}/children", {"children": children})
+
+
+def insert_block_children_after(block_id: str, after_block_id: str, children: list[dict]) -> dict:
+    return notion_patch(
+        f"/blocks/{block_id}/children",
+        {
+            "after": after_block_id,
+            "children": children,
+        },
+    )
 
 
 def delete_block(block_id: str) -> dict:
@@ -1409,6 +1435,8 @@ def build_run_history_schema() -> dict:
         "Duplicates": {"number": {"format": "number"}},
         "Rejected": {"number": {"format": "number"}},
         "Proposals Generated": {"number": {"format": "number"}},
+        "Job URL": {"url": {}},
+        "Job Links": {"rich_text": {}},
         "Error Message": {"rich_text": {}},
         "GitHub Run URL": {"url": {}},
     }
@@ -1849,12 +1877,26 @@ def record_run_history(
     duplicates: int = 0,
     rejected: int = 0,
     proposals_generated: int = 0,
+    job_url: str = "",
+    job_links: str = "",
     error_message: str = "",
 ):
     try:
         run_history_database_id = require_database_id("run_history")
     except Exception:
         return
+
+    try:
+        existing_properties = get_database(run_history_database_id).get("properties", {})
+        missing_properties = {
+            name: schema
+            for name, schema in build_run_history_schema().items()
+            if name not in existing_properties
+        }
+        if missing_properties:
+            patch_database_properties(run_history_database_id, missing_properties)
+    except Exception:
+        pass
 
     github_run_url = os.getenv("GITHUB_SERVER_URL", "").strip()
     if github_run_url and os.getenv("GITHUB_REPOSITORY") and os.getenv("GITHUB_RUN_ID"):
@@ -1878,6 +1920,8 @@ def record_run_history(
         "Duplicates": number_property(duplicates),
         "Rejected": number_property(rejected),
         "Proposals Generated": number_property(proposals_generated),
+        "Job URL": url_property(job_url),
+        "Job Links": rich_text_property(job_links),
         "Error Message": rich_text_property(error_message),
         "GitHub Run URL": url_property(github_run_url),
     }

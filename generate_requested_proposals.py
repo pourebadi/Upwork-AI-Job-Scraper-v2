@@ -51,6 +51,21 @@ def find_description_toggle(page_id: str) -> str:
     return nw.collect_block_text(page_id).strip()
 
 
+def find_proposal_insert_anchor(page_id: str) -> str:
+    blocks = nw.list_block_children(page_id)
+
+    for index, block in enumerate(blocks):
+        title = nw.extract_plain_text_from_block(block)
+        if title != "Proposal Workflow":
+            continue
+
+        if index + 1 < len(blocks):
+            return blocks[index + 1]["id"]
+        return block["id"]
+
+    return ""
+
+
 def find_template_by_name(template_name: str):
     return nw.find_prompt_template_page(template_name)
 
@@ -87,7 +102,7 @@ def set_generating(page_id: str):
     nw.update_page(
         page_id,
         {
-            "Generate Proposal": nw.checkbox_property(False),
+            "Generate Proposal": nw.checkbox_property(True),
             "Manager Review": nw.status_property("Approved"),
             "Proposal Status": nw.status_property("Generating"),
             "Proposal Requested At": nw.date_property(nw.now_iso()),
@@ -115,7 +130,7 @@ def set_ready(page: dict, proposal: str, ai_notes: str, model_name: str, templat
     nw.update_page(
         page_id,
         {
-            "Generate Proposal": nw.checkbox_property(False),
+            "Generate Proposal": nw.checkbox_property(True),
             "Manager Review": nw.status_property("Approved"),
             "Proposal Status": nw.status_property("Ready"),
             "Proposal Generated At": nw.date_property(nw.now_iso()),
@@ -137,7 +152,12 @@ def set_ready(page: dict, proposal: str, ai_notes: str, model_name: str, templat
 
     notes = f"Template: {template_name or 'Default Proposal Template'}\nModel: {model_name}"
     blocks.append(nw.toggle_block("Proposal Metadata", nw.blocks_from_text(notes)))
-    nw.append_block_children(page_id, blocks)
+
+    insert_after = find_proposal_insert_anchor(page_id)
+    if insert_after:
+        nw.insert_block_children_after(page_id, insert_after, blocks)
+    else:
+        nw.append_block_children(page_id, blocks)
 
 
 def get_requested_jobs() -> list[dict]:
@@ -154,11 +174,11 @@ def get_requested_jobs() -> list[dict]:
         proposal_checkbox = nw.get_checkbox_property(page, "Generate Proposal", False)
 
         if target_page_id:
-            if normalized_page_id == target_page_id and proposal_status != "Generating":
+            if normalized_page_id == target_page_id and proposal_status not in {"Generating", "Ready"}:
                 requested.append(page)
             continue
 
-        if proposal_status == "Generating":
+        if proposal_status in {"Generating", "Ready"}:
             continue
 
         if proposal_checkbox or (manager_review == "Approved" and proposal_status == "Requested"):
@@ -170,6 +190,8 @@ def get_requested_jobs() -> list[dict]:
 def main():
     started_at = nw.now_iso()
     proposals_generated = 0
+    first_job_url = ""
+    processed_job_links = []
 
     try:
         requested_jobs = get_requested_jobs()
@@ -182,6 +204,7 @@ def main():
                 started_at=started_at,
                 finished_at=nw.now_iso(),
                 proposals_generated=0,
+                error_message="No checked jobs found. No proposal was generated.",
             )
             return
 
@@ -213,6 +236,10 @@ def main():
                 template_name=resolved_template_name or nw.get_plain_text_property(page, "Prompt Template"),
             )
             proposals_generated += 1
+            if page.get("url"):
+                if not first_job_url:
+                    first_job_url = page["url"]
+                processed_job_links.append(f"{title}: {page['url']}")
             time.sleep(0.5)
 
         nw.record_run_history(
@@ -221,6 +248,8 @@ def main():
             started_at=started_at,
             finished_at=nw.now_iso(),
             proposals_generated=proposals_generated,
+            job_url=first_job_url,
+            job_links="\n".join(processed_job_links),
         )
 
     except Exception as error:
@@ -231,6 +260,8 @@ def main():
             started_at=started_at,
             finished_at=nw.now_iso(),
             proposals_generated=proposals_generated,
+            job_url=first_job_url,
+            job_links="\n".join(processed_job_links),
             error_message=str(error),
         )
         raise
