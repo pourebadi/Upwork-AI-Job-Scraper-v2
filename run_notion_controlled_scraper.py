@@ -4,13 +4,17 @@ Run Notion-controlled scraper actions.
 Managers should only need one visible action in Notion:
 - check "Fetch New Jobs" in Automation Control
 
-The workflow runs automatically on GitHub's 3-hour schedule. It can also run
-immediately when Notion sends a webhook or when an admin starts it manually.
+The workflow wakes up regularly from GitHub Actions. It checks requested
+proposals on every scheduled wake-up and runs the scraper only when its
+3-hour interval is due. It can also run immediately when Notion sends a
+webhook or when an admin starts it manually.
 """
 
+from datetime import datetime, timezone
 import logging
 import os
 
+import generate_requested_proposals as proposal_runner
 import notion_workspace as nw
 import setup_notion_workspace as setup_workspace
 import upwork_scraper as scraper
@@ -23,6 +27,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+SCHEDULED_SCRAPER_INTERVAL_HOURS = int(os.getenv("SCHEDULED_SCRAPER_INTERVAL_HOURS", "3"))
 
 
 def is_true(value: str) -> bool:
@@ -33,6 +38,40 @@ def update_control_row(page_id: str, properties: dict):
     if not page_id:
         return
     nw.update_page(page_id, properties)
+
+
+def parse_iso_datetime(value: str):
+    if not value:
+        return None
+
+    text = str(value).strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+
+    return parsed.astimezone(timezone.utc)
+
+
+def is_scheduled_scraper_due(control_row: dict) -> bool:
+    if not control_row:
+        return True
+
+    last_run = (
+        parse_iso_datetime(nw.get_plain_text_property(control_row, "Last Scraper Run At"))
+        or parse_iso_datetime(nw.get_plain_text_property(control_row, "Last Fetch At"))
+    )
+    if not last_run:
+        return True
+
+    elapsed_seconds = (nw.now_utc() - last_run).total_seconds()
+    return elapsed_seconds >= SCHEDULED_SCRAPER_INTERVAL_HOURS * 3600
 
 
 def has_required_scraper_databases() -> bool:
@@ -59,7 +98,8 @@ def main():
     refresh_workspace_now = (
         nw.get_checkbox_property(control_row, "Refresh Workspace Now", False) if control_row else False
     )
-    scheduled_scrape_due = trigger_source == "schedule"
+    scheduled_trigger = trigger_source == "schedule"
+    scheduled_scrape_due = scheduled_trigger and is_scheduled_scraper_due(control_row)
 
     should_refresh_workspace = setup_only or refresh_workspace_now
     should_run_scraper = (
@@ -68,8 +108,9 @@ def main():
         or run_scraper_now
         or scheduled_scrape_due
     )
+    should_check_proposals = scheduled_trigger or (trigger_source in {"manual", "notion"} and not setup_only)
 
-    if not should_refresh_workspace and not should_run_scraper:
+    if not should_refresh_workspace and not should_run_scraper and not should_check_proposals:
         logger.info("No Notion-controlled scraper action requested.")
         return
 
@@ -83,13 +124,20 @@ def main():
             action_parts.append("Notion Scraper")
         else:
             action_parts.append("Manual Scraper")
+    if should_check_proposals:
+        action_parts.append("Proposal Check")
     action_label = " + ".join(action_parts)
 
-    start_message = "Fetching new jobs..." if should_run_scraper else "Refreshing workspace..."
+    if should_run_scraper:
+        start_message = "Fetching new jobs and checking requested proposals..."
+    elif should_refresh_workspace:
+        start_message = "Refreshing workspace..."
+    else:
+        start_message = "Checking requested proposals..."
     update_control_row(
         control_row_id,
         {
-            "Fetch Status": nw.status_property("Running"),
+            "Fetch Status": nw.status_property("Running" if should_run_scraper else "Idle"),
             "Last Action": nw.rich_text_property(action_label),
             "Last Result": nw.status_property("Running"),
             "Last Message": nw.rich_text_property(start_message),
@@ -97,19 +145,20 @@ def main():
     )
 
     try:
-        should_bootstrap_workspace = should_run_scraper and not has_required_scraper_databases()
+        should_bootstrap_workspace = (should_run_scraper or should_check_proposals) and not has_required_scraper_databases()
 
         if should_refresh_workspace or should_bootstrap_workspace:
             if should_bootstrap_workspace:
-                logger.info("Missing Notion database IDs; running workspace setup before scraping.")
+                logger.info("Missing Notion database IDs; running workspace setup before automation.")
             setup_workspace.main()
 
         updates = {
-            "Fetch Status": nw.status_property("Success"),
+            "Fetch Status": nw.status_property("Success" if should_run_scraper else "Idle"),
             "Last Action": nw.rich_text_property(action_label),
             "Last Result": nw.status_property("Success"),
-            "Last Message": nw.rich_text_property("Done. Jobs list updated."),
+            "Last Message": nw.rich_text_property("Done. Jobs/proposals checked."),
         }
+        settings_applied = False
 
         if should_refresh_workspace:
             updates["Refresh Workspace Now"] = nw.checkbox_property(False)
@@ -117,6 +166,7 @@ def main():
 
         if should_run_scraper:
             scraper.apply_workspace_settings()
+            settings_applied = True
             scraper.run_scraper()
             finished_at = nw.now_iso()
             updates["Fetch New Jobs"] = nw.checkbox_property(False)
@@ -127,6 +177,11 @@ def main():
                 updates["Run Scraper Now"] = nw.checkbox_property(False)
         elif fetch_new_jobs:
             updates["Fetch New Jobs"] = nw.checkbox_property(False)
+
+        if should_check_proposals:
+            if not settings_applied:
+                scraper.apply_workspace_settings()
+            proposal_runner.main()
 
         if "Last Completed At" not in updates:
             updates["Last Completed At"] = nw.date_property(nw.now_iso())

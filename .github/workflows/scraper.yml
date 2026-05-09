@@ -17,8 +17,9 @@ on:
           - "false"
           - "true"
   schedule:
-    # Runs automatically every 3 hours. GitHub cron is UTC.
-    - cron: "0 */3 * * *"
+    # Checks requested proposals every 15 minutes and runs the scraper when its
+    # 3-hour interval is due. GitHub cron is UTC.
+    - cron: "*/15 * * * *"
 
 concurrency:
   group: upwork-scraper-${{ github.ref }}

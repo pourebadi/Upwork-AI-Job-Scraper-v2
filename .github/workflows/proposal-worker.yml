@@ -12,9 +12,6 @@ on:
         description: "Optional Notion page id to process immediately"
         required: false
         type: string
-  schedule:
-    - cron: "*/5 * * * *"
-
 concurrency:
   group: proposal-worker-${{ github.ref }}
   cancel-in-progress: false

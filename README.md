@@ -73,7 +73,7 @@ Instead of starting from an empty search page every day, you get a clean pipelin
 
 ## What It Does
 
-The system runs automatically every 3 hours through GitHub Actions. Managers can also trigger a faster manual fetch from Notion when needed.
+The system checks requested proposals automatically about every 15 minutes and runs the scraper every 3 hours through GitHub Actions. Managers can also trigger a faster manual fetch from Notion when needed.
 
 It searches Upwork through Apify, collects structured job data, removes duplicates, scores each job, writes a proposal draft with OpenAI, and sends everything into Notion as a clean review page.
 
@@ -363,7 +363,7 @@ When `setup_notion_workspace.py` runs, it also creates or refreshes a Persian kn
 1. Open Jobs in Notion.
 2. Review a job in the list or open its page.
 3. Tick Generate Proposal on that row.
-4. Wait for Proposal Status to move to Generating and then Ready.
+4. Wait for Proposal Status to move to Generating and then Ready. If the Notion webhook automation is not configured, the scheduled GitHub check picks it up on the next 15-minute cycle.
 5. Read the generated proposal inside the same job page.
 6. Usually do nothing for fetching: the scraper runs automatically every 3 hours.
 7. If you need fresh jobs sooner, open Automation Control and tick Fetch New Jobs.
@@ -404,8 +404,9 @@ Manager ticks Generate Proposal
 Automatic list refresh:
 
 ```text
-GitHub Actions runs scraper.yml every 3 hours
-→ run_notion_controlled_scraper.py runs upwork_scraper.py
+GitHub Actions wakes scraper.yml every 15 minutes
+→ run_notion_controlled_scraper.py checks requested proposals every time
+→ upwork_scraper.py runs only when the 3-hour scraper interval is due
 → new jobs are written into Jobs
 → Automation Control shows Fetch Status and Last Fetch At
 → Run History records the execution
