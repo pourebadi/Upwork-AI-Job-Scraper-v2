@@ -129,12 +129,14 @@ def get_requested_jobs() -> list[dict]:
     for page in pages:
         normalized_page_id = page["id"].replace("-", "")
 
-        if target_page_id and normalized_page_id != target_page_id:
-            continue
-
         manager_review = nw.get_plain_text_property(page, "Manager Review")
         proposal_status = nw.get_plain_text_property(page, "Proposal Status")
         proposal_checkbox = nw.get_checkbox_property(page, "Generate Proposal", False)
+
+        if target_page_id:
+            if normalized_page_id == target_page_id and proposal_status != "Generating":
+                requested.append(page)
+            continue
 
         if proposal_status == "Generating":
             continue

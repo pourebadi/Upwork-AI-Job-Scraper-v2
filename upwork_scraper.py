@@ -1624,7 +1624,7 @@ def add_job_to_notion(job: dict) -> bool:
     add_callout_chunks(
         children,
         (
-            "After review, tick the Generate Proposal checkbox on this row or page. "
+            "After review, click Generate Proposal Now on this row or page. "
             "That one action is enough: the automation approves the job, requests the "
             "proposal, and starts generation. Do not change statuses manually."
         ),
@@ -1690,6 +1690,7 @@ def add_job_to_notion(job: dict) -> bool:
 
     add_property_if_exists(properties, "Status", {"status": {"name": "Draft"}})
     add_property_if_exists(properties, "Generate Proposal", nw.checkbox_property(False))
+    add_property_if_exists(properties, "Generate Proposal Now", nw.url_property(""))
     add_property_if_exists(properties, "Manager Review", {"status": {"name": "New"}})
     add_property_if_exists(properties, "Proposal Status", {"status": {"name": "Not Requested"}})
     add_property_if_exists(properties, "Match Score", {"number": match_score})
@@ -1733,6 +1734,26 @@ def add_job_to_notion(job: dict) -> bool:
         )
 
         response.raise_for_status()
+        created_page = response.json()
+        created_page_id = created_page.get("id", "")
+
+        if created_page_id:
+            update_properties = {}
+            add_property_if_exists(
+                update_properties,
+                "Generate Proposal Now",
+                nw.url_property(nw.build_generate_proposal_action_url(created_page_id)),
+            )
+            if update_properties:
+                try:
+                    requests.patch(
+                        f"{NOTION_API_URL}/pages/{created_page_id}",
+                        headers=notion_headers(),
+                        json={"properties": update_properties},
+                        timeout=30,
+                    ).raise_for_status()
+                except requests.exceptions.RequestException as error:
+                    logger.warning(f"Could not set Generate Proposal Now link for '{title[:60]}': {error}")
 
         logger.info(f"Added to Notion: {title[:60]}")
         return True

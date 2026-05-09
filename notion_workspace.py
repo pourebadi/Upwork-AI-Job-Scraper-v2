@@ -63,7 +63,7 @@ JOBS_TABLE_VISIBLE_ORDER = [
 
 JOBS_REVIEW_VISIBLE_ORDER = [
     "Title",
-    "Generate Proposal",
+    "Generate Proposal Now",
     "Manager Review",
     "Proposal Status",
     "Status",
@@ -83,6 +83,7 @@ JOBS_REVIEW_VISIBLE_ORDER = [
 ]
 
 JOBS_TABLE_HIDDEN_PROPERTIES = {
+    "Generate Proposal",
     "AI Model",
     "AI Notes",
     "Job ID",
@@ -1145,6 +1146,7 @@ def build_jobs_schema() -> dict:
     return {
         "Title": {"title": {}},
         "Generate Proposal": {"checkbox": {}},
+        "Generate Proposal Now": {"url": {}},
         "Status": {
             "status": {
                 "options": [
@@ -1299,6 +1301,19 @@ def build_webhook_action_url(path: str) -> str:
         separator = "&" if "?" in url else "?"
         url = f"{url}{separator}secret={WEBHOOK_SHARED_SECRET}"
     return url
+
+
+def build_generate_proposal_action_url(page_id: str) -> str:
+    page_id = str(page_id or "").strip()
+    if not page_id:
+        return ""
+
+    base = build_webhook_action_url("/notion/generate-proposal")
+    if not base:
+        return ""
+
+    separator = "&" if "?" in base else "?"
+    return f"{base}{separator}page_id={page_id}"
 
 
 def build_scraper_settings_schema() -> dict:
@@ -1553,6 +1568,16 @@ def sync_automation_control_row(database_id: str):
     update_page(existing["id"], updates)
 
 
+def sync_jobs_action_links(database_id: str):
+    for page in query_database(database_id):
+        update_page(
+            page["id"],
+            {
+                "Generate Proposal Now": url_property(build_generate_proposal_action_url(page["id"])),
+            },
+        )
+
+
 def build_persian_knowledge_base_blocks() -> list[dict]:
     blocks = [
         callout_block(
@@ -1575,7 +1600,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             [
                 paragraph_block("1. وارد دیتابیس Jobs می‌شود."),
                 paragraph_block("2. از ویوی 01 Today - New Jobs یا 03 Needs Decision شروع می‌کند."),
-                paragraph_block("3. جاب خوب را بررسی می‌کند و اگر مناسب بود تیک Generate Proposal را می‌زند."),
+                paragraph_block("3. جاب خوب را بررسی می‌کند و اگر مناسب بود روی Generate Proposal Now کلیک می‌کند."),
                 paragraph_block("4. اگر نیاز به جاب‌های جدید داشت، در دیتابیس Automation Control روی Run Scraper Link کلیک می‌کند."),
                 paragraph_block("5. خروجی proposal را در همان صفحه جاب و نتایج اجرا را در Run History می‌بیند."),
             ],
@@ -1588,7 +1613,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
                 paragraph_block("مرکز اصلی بررسی جاب‌ها است. هر ردیف یک job از Upwork است."),
                 paragraph_block("مهم‌ترین propertyها:"),
                 paragraph_block("Title: عنوان جاب"),
-                paragraph_block("Generate Proposal: تریگر ساده برای ساخت proposal"),
+                paragraph_block("Generate Proposal Now: لینک اجرای فوری proposal برای همان جاب."),
                 paragraph_block("Manager Review: وضعیت تایید یا رد توسط مدیر"),
                 paragraph_block("Proposal Status: وضعیت ساخت proposal"),
                 paragraph_block("Match Score: امتیاز کیفیت جاب برای اولویت‌بندی"),
@@ -1641,7 +1666,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
         toggle_block(
             "Propertyهای تصمیم‌گیری روزانه",
             [
-                paragraph_block("Generate Proposal: اگر تیک بخورد، سیستم برای همین جاب proposal می‌سازد."),
+                paragraph_block("Generate Proposal Now: با یک کلیک، همان جاب مستقیم برای proposal ارسال می‌شود."),
                 paragraph_block("Manager Review: New یعنی هنوز بررسی نشده، Approved یعنی تایید شده، Rejected یعنی رد شده."),
                 paragraph_block("Proposal Status: Not Requested, Requested, Generating, Ready, Failed."),
                 paragraph_block("Status: وضعیت کلی داخلی مثل Draft, Applied, Rejected, Skipped."),
@@ -1708,7 +1733,7 @@ def build_persian_knowledge_base_blocks() -> list[dict]:
             "ساخت proposal برای یک جاب",
             [
                 paragraph_block("1. جاب را در Jobs باز کن یا در همان جدول پیدا کن."),
-                paragraph_block("2. Generate Proposal را فعال کن."),
+                paragraph_block("2. روی Generate Proposal Now کلیک کن."),
                 paragraph_block("3. سیستم خودش Manager Review و Proposal Status را مدیریت می‌کند."),
                 paragraph_block("4. خروجی در همان صفحه زیر AI Proposal می‌آید."),
             ],
